@@ -1,0 +1,91 @@
+{
+  "id": "C13",
+  "title": "The Broken E-Wallet",
+  "materi": [1, 2, 3, 4, 5],
+  "capstone": true,
+  "case": "E-wallet kampus DompetKu (integrated capstone)",
+  "topics": ["konsep class", "class attribute", "instance attribute", "encapsulation", "name mangling", "decorator", "custom decorator", "inheritance", "overriding", "abstract method", "data class", "attribute mutability", "duck typing", "structural typing", "pemodelan objek"],
+  "summary": "DompetKu menggabungkan akun abstrak, beberapa tipe akun, decorator pencatat transaksi, bukti transaksi berbasis dataclass, dan pemroses pembayaran berbasis perilaku. Laporan pengguna: riwayat semua akun tercampur, mahasiswa bisa menarik uang berkali-kali, transaksi gagal tercatat, bukti transaksi bisa diedit, dan voucher BEM ditolak.",
+  "objectives": [
+    "O1: menganalisis interaksi beberapa konsep PBO dalam satu sistem modular.",
+    "O2: menelusuri bug yang melintasi batas konsep (mis. name mangling yang muncul karena overriding).",
+    "O3: menulis patch dan regression test yang tidak merusak modul lain."
+  ],
+  "spec": [
+    "Akun adalah abstract class; AkunMahasiswa (biaya transfer 0, batas tarik harian 1.000.000) dan AkunMerchant (biaya transfer max(1.000, 1%)).",
+    "saldo hanya dapat dibaca (property) dan berubah melalui topup/tarik/transfer.",
+    "Setiap akun memiliki riwayat sendiri; property riwayat mengembalikan tuple Transaksi.",
+    "Transaksi(jenis, jumlah) immutable.",
+    "@catat(jenis) hanya mencatat operasi yang berhasil.",
+    "PemrosesPembayaran.proses menerima sumber dana apa pun yang memiliki bayar(jumlah) (Akun maupun VoucherKampus); selainnya TypeError.",
+    "transfer(asal, tujuan, jumlah) memotong jumlah + biaya dari asal, menambah jumlah ke tujuan, dan mengembalikan biaya."
+  ],
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "Riwayat dibagi semua akun",
+      "location": "Akun._riwayat = []",
+      "concept": "class attribute vs instance attribute (materi 1)",
+      "scenario": "List riwayat didefinisikan di level class sehingga semua akun menambah ke list yang sama.",
+      "attack": "a.topup(10000); len(b.riwayat) -> 1.",
+      "fix": "self._riwayat = [] di Akun.__init__."
+    },
+    {
+      "id": "B2",
+      "title": "Penarikan mahasiswa tidak mengurangi saldo",
+      "location": "AkunMahasiswa.tarik: self.__saldo = ...",
+      "concept": "name mangling + overriding (materi 2 & 4)",
+      "scenario": "Override tarik menulis self.__saldo yang di-mangle menjadi _AkunMahasiswa__saldo; saldo parent tidak berubah.",
+      "attack": "m = AkunMahasiswa('A', 150000); m.tarik(100000); m.tarik(100000) berhasil dua kali.",
+      "fix": "Gunakan self._ubah_saldo(-jumlah)."
+    },
+    {
+      "id": "B3",
+      "title": "Transaksi gagal tercatat",
+      "location": "catat.decorator.wrapper",
+      "concept": "custom decorator — urutan efek samping (materi 3)",
+      "scenario": "Wrapper menambahkan Transaksi sebelum memanggil fungsi asli, sehingga operasi yang melempar error tetap tercatat.",
+      "attack": "AkunMerchant('K', 1000).tarik(5000) -> ValueError, tetapi riwayat berisi Transaksi('tarik', 5000).",
+      "fix": "Panggil func terlebih dahulu, catat setelah berhasil."
+    },
+    {
+      "id": "B4",
+      "title": "Bukti transaksi dapat dimodifikasi",
+      "location": "@dataclass Transaksi / property riwayat",
+      "concept": "data class dan attribute mutability (materi 5)",
+      "scenario": "Transaksi tidak frozen dan riwayat mengembalikan list internal, sehingga pemanggil dapat mengubah atau menambah bukti.",
+      "attack": "a.riwayat[0].jumlah = 1 atau a.riwayat.append(...) berhasil.",
+      "fix": "@dataclass(frozen=True) dan return tuple(self._riwayat)."
+    },
+    {
+      "id": "B5",
+      "title": "Voucher ditolak pemroses",
+      "location": "PemrosesPembayaran.proses: isinstance(sumber, Akun)",
+      "concept": "duck typing / structural typing (materi 5)",
+      "scenario": "Pemroses memeriksa class Akun padahal kontraknya adalah perilaku bayar(); VoucherKampus ditolak.",
+      "attack": "PemrosesPembayaran().proses(VoucherKampus('BEM', 20000), 15000) -> TypeError.",
+      "fix": "isinstance(sumber, DapatMembayar) (runtime_checkable Protocol) + callable check."
+    }
+  ],
+  "attack_procedure": [
+    "Petakan modul: data, decorator, akun, pembayaran — dan konsep PBO yang dipakai masing-masing.",
+    "Uji tiap modul secara terpisah lalu uji interaksinya (transfer, proses).",
+    "Prioritaskan temuan berdampak finansial (uang ganda, saldo tidak berkurang) dan buktikan dengan test.",
+    "Laporkan maksimal dua temuan terbaik — hanya dua temuan valid yang mendapat poin per ronde."
+  ],
+  "rubric_notes": {
+    "attack": "Temuan lintas konsep (B2) bernilai tinggi jika root cause menjelaskan kedua konsep yang terlibat.",
+    "defense": "Patch tidak boleh merusak modul lain: jalankan seluruh test normal (transfer, abstract, batas harian)."
+  },
+  "concept_map": [
+    {"topic": "class attribute", "bug": "B1", "objective": "O1"},
+    {"topic": "name mangling", "bug": "B2", "objective": "O2"},
+    {"topic": "overriding", "bug": "B2", "objective": "O2"},
+    {"topic": "custom decorator", "bug": "B3", "objective": "O1"},
+    {"topic": "data class", "bug": "B4", "objective": "O1"},
+    {"topic": "attribute mutability", "bug": "B4", "objective": "O3"},
+    {"topic": "duck typing", "bug": "B5", "objective": "O1"},
+    {"topic": "structural typing", "bug": "B5", "objective": "O2"},
+    {"topic": "abstract method", "bug": "-", "objective": "O3"}
+  ]
+}

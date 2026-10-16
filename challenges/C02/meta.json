@@ -1,0 +1,66 @@
+{
+  "id": "C02",
+  "title": "Wrong Instance State",
+  "materi": [1],
+  "case": "Kartu Rencana Studi (KRS) mahasiswa",
+  "topics": ["instance attribute", "class attribute", "method", "instance method", "membuat object", "pemodelan objek", "attribute mutability"],
+  "summary": "Bagian akademik memodelkan mahasiswa dan KRS-nya. Setelah sistem dipakai, mata kuliah mahasiswa saling tercampur, jumlah mahasiswa selalu tercatat 0, dan dispensasi SKS untuk satu mahasiswa berlaku untuk seluruh kampus.",
+  "objectives": [
+    "O1: membedakan instance attribute dan class attribute ketika dibaca dan ketika di-assign melalui self.",
+    "O2: memahami bahwa instance method bekerja pada state objeknya sendiri.",
+    "O3: memodelkan aturan bisnis KRS (batas SKS default vs dispensasi per mahasiswa) dengan attribute yang tepat."
+  ],
+  "spec": [
+    "Mahasiswa(nim, nama, krs=None) membuat mahasiswa dengan KRS miliknya sendiri.",
+    "Mahasiswa.jumlah_mahasiswa adalah class attribute yang bertambah 1 setiap object dibuat.",
+    "ambil_mk(kode, sks) menambah mata kuliah; sks <= 0, duplikat, atau melebihi batas ditolak dengan ValueError.",
+    "Mahasiswa.batas_sks = 24 adalah batas default kampus.",
+    "beri_dispensasi(batas) mengubah batas SKS HANYA untuk mahasiswa tersebut.",
+    "info() mengembalikan '<nim> <nama>: <total>/<batas> SKS'."
+  ],
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "Default argument mutable membuat KRS dibagi bersama",
+      "location": "Mahasiswa.__init__(..., krs=[])",
+      "concept": "instance attribute yang menunjuk objek mutable bersama",
+      "scenario": "Default [] dievaluasi sekali saat def dieksekusi. Semua mahasiswa yang dibuat tanpa argumen krs memakai list yang sama.",
+      "attack": "a = Mahasiswa('1','A'); b = Mahasiswa('2','B'); a.ambil_mk('ALPRO',3); b.krs -> [('ALPRO', 3)].",
+      "fix": "krs=None lalu self.krs = [] (atau list(krs))."
+    },
+    {
+      "id": "B2",
+      "title": "Counter class tidak pernah bertambah",
+      "location": "self.jumlah_mahasiswa += 1",
+      "concept": "assignment melalui self membuat instance attribute baru (shadowing)",
+      "scenario": "self.x += 1 membaca class attribute lalu menulis instance attribute, sehingga Mahasiswa.jumlah_mahasiswa tetap 0.",
+      "attack": "Buat dua mahasiswa lalu periksa Mahasiswa.jumlah_mahasiswa -> 0.",
+      "fix": "Mahasiswa.jumlah_mahasiswa += 1 (atau type(self).jumlah_mahasiswa += 1)."
+    },
+    {
+      "id": "B3",
+      "title": "Dispensasi mengubah batas seluruh kampus",
+      "location": "Mahasiswa.beri_dispensasi",
+      "concept": "instance method yang salah mengubah class attribute",
+      "scenario": "Method menulis Mahasiswa.batas_sks sehingga semua mahasiswa (termasuk yang dibuat setelahnya) ikut mendapat batas baru.",
+      "attack": "a.beri_dispensasi(30); Mahasiswa('x','y', []).batas_sks -> 30.",
+      "fix": "self.batas_sks = batas_baru (instance attribute menimpa default class)."
+    }
+  ],
+  "attack_procedure": [
+    "Identifikasi attribute mana yang milik class dan mana yang milik instance.",
+    "Buat beberapa mahasiswa dengan dan tanpa argumen opsional.",
+    "Periksa vars(obj) dan Class.__dict__ untuk membuktikan lokasi attribute.",
+    "Tulis test unittest yang mereproduksi efek salah lalu jelaskan root cause."
+  ],
+  "rubric_notes": {
+    "attack": "Laporan B2 yang hanya menyebut 'counter salah' tanpa menjelaskan shadowing oleh self.x += 1 belum mendapat poin root cause penuh.",
+    "defense": "Patch B3 tidak boleh menghapus class attribute batas_sks; default kampus tetap 24."
+  },
+  "concept_map": [
+    {"topic": "instance attribute", "bug": "B1", "objective": "O1"},
+    {"topic": "class attribute", "bug": "B2", "objective": "O1"},
+    {"topic": "instance method", "bug": "B3", "objective": "O2"},
+    {"topic": "pemodelan objek", "bug": "B3", "objective": "O3"}
+  ]
+}

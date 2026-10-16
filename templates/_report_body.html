@@ -1,0 +1,11 @@
+<dl>
+  <dt>Lokasi kode</dt><dd class="mono">{{ r.code_location }}</dd>
+  <dt>Konsep PBO</dt><dd>{{ r.concept }}</dd>
+  <dt>Input / pemicu</dt><dd class="mono">{{ r.trigger_input }}</dd>
+  <dt>Expected</dt><dd>{{ r.expected }}</dd>
+  <dt>Actual</dt><dd>{{ r.actual }}</dd>
+  <dt>Reproduksi</dt><dd>{{ r.repro_steps }}</dd>
+  <dt>Root cause</dt><dd>{{ r.root_cause }}</dd>
+  <dt>Bukti / test</dt><dd class="mono">{% if r.evidence.is_empty() %}-{% else %}{{ r.evidence }}{% endif %}</dd>
+  <dt>Snapshot target</dt><dd class="mono">{{ r.snapshot_label }}</dd>
+</dl>

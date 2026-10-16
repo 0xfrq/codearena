@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Challenge — Code Arena{% endblock %}
+{% block nav %}<a href="/admin/challenges">← Challenge bank</a><a href="/admin">Dashboard</a>{% endblock %}
+{% block content %}
+<main class="wrap">
+{{ frag|safe }}
+</main>
+{% endblock %}
+{% block scripts %}<script>CA.lineNumbers(document);</script>{% endblock %}

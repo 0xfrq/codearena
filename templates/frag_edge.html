@@ -1,0 +1,22 @@
+<div>
+  <div class="section-label">Relasi serangan resmi — ronde {{ round_number }}</div>
+  <h2 style="margin:.2rem 0 .6rem"><span class="tone-threat">ATTACK</span> {{ attacker_name }} → {{ target_name }}</h2>
+  <dl class="kv">
+    <dt>Penyerang</dt><dd>{{ attacker_name }}</dd>
+    <dt>Target</dt><dd>{{ target_name }}</dd>
+    <dt>Pairing</dt><dd>{% if locked %}<span class="badge tone-success"><span class="ico">✓</span>dikunci server</span>{% else %}<span class="badge tone-idle"><span class="ico">○</span>usulan (belum dikunci)</span>{% endif %}</dd>
+    <dt>Fase ronde</dt><dd>{{ phase_label }}</dd>
+    <dt>Target diuji pada</dt><dd class="mono small">{{ snapshot_label }}</dd>
+    <dt>Status penyerang</dt><dd>{% match attack_status %}{% when Some with (s) %}<span class="badge tone-{{ s.tone }}"><span class="ico">{{ s.icon }}</span>{{ s.label }}</span> <span class="small muted">{{ s.reason }}</span>{% when None %}-{% endmatch %}</dd>
+    <dt>Status defender</dt><dd>{% match defense_status %}{% when Some with (s) %}<span class="badge tone-{{ s.tone }}"><span class="ico">{{ s.icon }}</span>{{ s.label }}</span> <span class="small muted">{{ s.reason }}</span>{% when None %}-{% endmatch %}</dd>
+  </dl>
+  <h3 style="margin-top:1rem">Laporan pada relasi ini ({{ reports.len() }})</h3>
+  {% if reports.is_empty() %}<p class="muted">Belum ada laporan resmi.</p>{% endif %}
+  {% for r in reports %}
+  <article class="report" data-filter="{{ r.filter }}">
+    <div class="r-head"><span class="r-title">#{{ r.id }} {% if instructor %}{{ r.title }}{% endif %}</span><span class="badge tone-{{ r.tone }}"><span class="ico">{{ r.icon }}</span>{{ r.status_label }}</span></div>
+    <div class="small muted">submit {{ r.submitted_at }} · revisi {{ r.revision }} · defense: {{ r.defense_state_label }}{% if r.status == "valid" %} · {{ r.points }} poin{% endif %}</div>
+    {% if instructor %}<details><summary>Isi laporan</summary>{% include "_report_body.html" %}</details>{% endif %}
+  </article>
+  {% endfor %}
+</div>

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Waiting Room — Code Arena{% endblock %}
+{% block nav %}<a href="/arena">Live Arena</a><a href="/team" id="team-link" class="{% if !has_team %}hidden{% endif %}">Dashboard tim</a><button class="linklike" id="logout-btn" type="button">Keluar ({{ nim }})</button>{% endblock %}
+{% block content %}
+<main class="wrap">
+  <div class="grid grid-2">
+    <section class="card">
+      <div class="section-label">Waiting room</div>
+      <div class="row between">
+        <div>
+          <div class="big-number" id="w-joined">0</div>
+          <div class="muted">peserta hadir · <span id="w-online">0</span> online · <span id="w-assigned">0</span> sudah berkelompok</div>
+        </div>
+        <span class="badge big tone-idle" id="w-status"><span class="ico">○</span><span>Menunggu instruktur</span></span>
+      </div>
+      <hr>
+      <div id="w-message" class="notice">Kelompok belum dibentuk. Tunggu instruktur menyusun kelompok — halaman ini akan diperbarui otomatis.</div>
+      <div id="w-team" class="hidden" style="margin-top:1rem">
+        <div class="section-label">Kelompok Anda</div>
+        <h2 id="w-team-name"></h2>
+        <div id="w-team-members" class="chips"></div>
+        <a class="btn btn-primary" style="margin-top:1rem" href="/team">Buka dashboard tim →</a>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-title"><h3>Daftar hadir</h3><span class="muted small">Anda: <span class="mono">{{ nim }}</span></span></div>
+      <div id="w-list" class="chips"></div>
+    </section>
+  </div>
+  <section class="card" style="margin-top:1rem">
+    <div id="chat" data-me="{{ nim }}" data-rooms="lobby,broadcast"></div>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}
+<script src="/static/chat.js"></script>
+<script src="/static/wait.js"></script>
+{% endblock %}

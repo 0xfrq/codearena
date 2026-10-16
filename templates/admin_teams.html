@@ -1,0 +1,103 @@
+{% if locked %}<div class="notice warn" style="margin-bottom:1rem"><b>Kelompok dikunci</b> — pertandingan sudah dimulai. Perubahan anggota hanya melalui tindakan eksplisit dengan alasan, dan tercatat di histori/audit.</div>{% endif %}
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-title"><h3>Waiting room</h3><span class="small muted">diperbarui real-time</span></div>
+    <div class="section-label">Hadir, belum berkelompok ({{ waiting.len() }})</div>
+    <div class="chips" id="admin-waiting">
+      {% for m in waiting %}<span class="chip" data-nim="{{ m.nim }}"><span class="dot{% if m.online %} on{% endif %}"></span>{{ m.nim }}</span>{% endfor %}
+      {% if waiting.is_empty() %}<span class="muted small">Tidak ada peserta yang menunggu.</span>{% endif %}
+    </div>
+    <div class="section-label" style="margin-top:.8rem">Roster belum join ({{ not_joined.len() }})</div>
+    <div class="small mono muted">{% for n in not_joined %}{{ n }} {% endfor %}</div>
+  </div>
+  <div class="card">
+    <h3>Random assignment</h3>
+    <form class="inline-form" data-api="/api/admin/teams/random" data-refresh="teams" data-ok="Preview kelompok dibuat — periksa lalu konfirmasi">
+      <label class="check" style="margin:0">Target ukuran <input type="number" name="target_size" value="4" min="2" max="8" data-type="int" style="width:4.5rem"></label>
+      <label class="check" style="margin:0"><input type="checkbox" name="include_offline" data-type="bool"> sertakan yang offline</label>
+      <button class="btn btn-primary" type="submit" {% if locked %}disabled{% endif %}>Randomize teams</button>
+    </form>
+    <p class="small muted">Server mengambil snapshot peserta yang sedang menunggu, mengacak, dan membagi seimbang (selisih maks 1 orang, minimal 2 kelompok). Hasilnya preview — belum terlihat mahasiswa sebelum dikonfirmasi. Peserta yang datang setelah snapshot tetap menunggu.</p>
+    <hr>
+    <h3>Manual assignment</h3>
+    <form class="inline-form" data-api="/api/admin/teams/create" data-refresh="teams" data-reset="1" data-ok="Kelompok dibuat">
+      <input type="text" name="name" placeholder="Nama kelompok (kosong = otomatis)" maxlength="40">
+      <button class="btn" type="submit">Buat kelompok</button>
+    </form>
+    <form class="inline-form" style="margin-top:.5rem" data-api="/api/admin/teams/member" data-refresh="teams" data-ok="Anggota ditempatkan">
+      <input type="text" name="nim" placeholder="NIM" list="nim-options" maxlength="32" required style="width:10rem">
+      <datalist id="nim-options">{% for m in waiting %}<option value="{{ m.nim }}">{% endfor %}{% for n in not_joined %}<option value="{{ n }}">{% endfor %}</datalist>
+      <select name="team_id" data-type="int" required>
+        {% for t in drafts %}<option value="{{ t.id }}">{{ t.name }} (draft)</option>{% endfor %}
+        {% for t in confirmed %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+      </select>
+      {% if locked %}<input type="text" name="reason" placeholder="Alasan (wajib)" required>{% endif %}
+      <button class="btn" type="submit">Tambah / pindahkan</button>
+    </form>
+    <form class="inline-form" style="margin-top:.5rem" data-api="/api/admin/teams/place-late" data-refresh="teams" data-ok="Peserta terlambat ditempatkan">
+      {% if locked %}<input type="text" name="reason" placeholder="Alasan (wajib)" required>{% endif %}
+      <button class="btn btn-ghost" type="submit" {% if confirmed.is_empty() %}disabled{% endif %}>Tempatkan peserta terlambat ke kelompok terkecil</button>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-top:1rem;{% if drafts.is_empty() %}display:none{% endif %}">
+  <div class="card-title">
+    <h3>Preview / draft ({{ drafts.len() }} kelompok)</h3>
+    <div class="row">
+      <button class="btn btn-primary" type="button" data-api="/api/admin/teams/confirm" data-body="{}" data-confirm="Konfirmasi kelompok? Mahasiswa akan langsung melihat kelompoknya." data-refresh="teams round" data-ok="Kelompok dikonfirmasi">Konfirmasi kelompok</button>
+      <button class="btn btn-ghost" type="button" data-api="/api/admin/teams/discard" data-body="{}" data-confirm="Buang semua kelompok draft?" data-refresh="teams">Buang preview</button>
+    </div>
+  </div>
+  <div class="grid grid-3">
+  {% for t in drafts %}
+    <div class="team-card draft">
+      <div class="row between"><b>{{ t.name }}</b><span class="pill">{{ t.members.len() }} anggota · draft</span></div>
+      <div class="members">
+      {% for m in t.members %}
+        <div class="row between" style="padding:.15rem 0"><span class="member"><span class="dot{% if m.online %} on{% endif %}"></span>{{ m.nim }}</span>
+          <button class="btn btn-sm btn-ghost" type="button" data-api="/api/admin/teams/remove-member" data-body='{"nim":"{{ m.nim }}"}' data-refresh="teams">keluarkan</button></div>
+      {% endfor %}
+      </div>
+      <button class="btn btn-sm btn-ghost" type="button" data-api="/api/admin/teams/delete" data-body='{"team_id":{{ t.id }}}' data-refresh="teams">hapus kelompok</button>
+    </div>
+  {% endfor %}
+  </div>
+</div>
+
+<div class="card" style="margin-top:1rem">
+  <div class="card-title"><h3>Kelompok terkonfirmasi ({{ confirmed.len() }})</h3>{% if confirmed.len() < 2 %}<span class="small" style="color:var(--investigate)">Minimal 2 kelompok untuk memulai attack-defense.</span>{% endif %}</div>
+  {% if confirmed.is_empty() %}<p class="muted">Belum ada kelompok terkonfirmasi.</p>{% endif %}
+  <div class="grid grid-3">
+  {% for t in confirmed %}
+    <div class="team-card">
+      <form class="inline-form" data-api="/api/admin/teams/rename" data-refresh="teams round" data-ok="Nama diubah">
+        <input type="hidden" name="team_id" value="{{ t.id }}" data-type="int">
+        <input type="text" name="name" value="{{ t.name }}" maxlength="40" style="flex:1;font-weight:700">
+        <button class="btn btn-sm btn-ghost" type="submit">ubah</button>
+      </form>
+      <div class="members">
+      {% for m in t.members %}
+        <div class="row between" style="padding:.15rem 0">
+          <span class="member" data-nim="{{ m.nim }}"><span class="dot{% if m.online %} on{% endif %}"></span>{{ m.nim }}<span class="state">{% if !m.joined %}belum join{% endif %}</span></span>
+          <span class="row" style="gap:.25rem">
+            <button class="btn btn-sm btn-ghost" type="button" data-api="/api/admin/teams/remove-member" data-body='{"nim":"{{ m.nim }}"}' {% if locked %}data-prompt="reason:Alasan mengeluarkan {{ m.nim }}"{% endif %} data-refresh="teams">keluarkan</button>
+          </span>
+        </div>
+      {% endfor %}
+      </div>
+      {% if !locked %}<button class="btn btn-sm btn-ghost" type="button" data-api="/api/admin/teams/delete" data-body='{"team_id":{{ t.id }}}' data-confirm="Hapus kelompok {{ t.name }}? Anggota kembali ke waiting room." data-refresh="teams">hapus kelompok</button>{% endif %}
+    </div>
+  {% endfor %}
+  </div>
+</div>
+
+<details class="card" style="margin-top:1rem">
+  <summary>Histori perubahan kelompok ({{ history.len() }} terakhir)</summary>
+  <table>
+    <thead><tr><th>Waktu</th><th>Aksi</th><th>Kelompok / NIM</th><th>Detail / alasan</th></tr></thead>
+    <tbody>
+    {% for (at, action, who, detail) in history %}<tr><td class="mono small">{{ at }}</td><td>{{ action }}</td><td>{{ who }}</td><td class="small">{{ detail }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</details>

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Instruktur — Code Arena{% endblock %}
+{% block nav %}<a href="/arena" target="_blank" rel="noopener">Live Arena ↗</a><a href="/admin/challenges">Challenge bank</a><button class="linklike" id="logout-btn" type="button">Keluar</button>{% endblock %}
+{% block content %}
+<nav class="admin-nav">
+  {% for (key, label, _html) in frags %}<a href="#sec-{{ key }}">{{ label }}{% if key.to_string() == "review" %}<span class="count pill" id="nav-review-count"></span>{% endif %}</a>{% endfor %}
+</nav>
+<main class="wrap-wide">
+  <section class="card" style="margin-bottom:1rem">
+    <div class="row between">
+      <div class="row">
+        <div><div class="section-label">Ronde</div><span id="h-round" class="pill">-</span></div>
+        <div><div class="section-label">Fase</div><span id="h-phase" class="badge tone-idle"><span class="ico">○</span>-</span></div>
+        <div><div class="section-label">Sisa waktu</div><span id="h-clock" class="clock" style="font-size:1.6rem">--:--</span></div>
+      </div>
+      <div class="row">
+        <div><div class="section-label">Hadir</div><b id="h-joined">0</b></div>
+        <div><div class="section-label">Online</div><b id="h-online">0</b></div>
+        <div><div class="section-label">Laporan pending</div><b id="h-pending">0</b></div>
+        <div><div class="section-label">Patch pending</div><b id="h-patches">0</b></div>
+      </div>
+    </div>
+  </section>
+  <div class="grid" style="grid-template-columns: 1fr;">
+  {% for (key, label, html) in frags %}
+    <section class="admin-section" id="sec-{{ key }}">
+      <h2>{{ label }} <button class="btn btn-sm btn-ghost" type="button" data-refresh-frag="{{ key }}" title="Muat ulang bagian ini">↻</button></h2>
+      <div data-admin-frag="{{ key }}">{{ html|safe }}</div>
+    </section>
+  {% endfor %}
+  </div>
+</main>
+
+<dialog id="dlg-review-report">
+  <form method="dialog" id="form-review-report">
+    <div class="dlg-head"><h3 id="rr-title">Review attack report</h3><button class="btn btn-sm btn-ghost" value="cancel" type="submit">✕</button></div>
+    <div class="dlg-body">
+      <input type="hidden" name="report_id" data-type="int">
+      <div class="field"><label>Verdict</label>
+        <select name="verdict" id="rr-verdict">
+          <option value="valid">valid — bug terbukti</option>
+          <option value="invalid">invalid — tidak terbukti / bukan bug</option>
+          <option value="duplicate">duplicate — temuan sama dengan laporan lain</option>
+          <option value="needs_revision">needs revision — attacker harus memperbaiki laporan</option>
+        </select>
+      </div>
+      <div class="rubric" id="rr-rubric">
+        <div class="field"><label>Bug dapat direproduksi (0–10)</label><input type="number" name="repro" min="0" max="10" data-type="int"></div>
+        <div class="field"><label>Root cause &amp; konsep PBO (0–10)</label><input type="number" name="rootcause" min="0" max="10" data-type="int"></div>
+        <div class="field"><label>Bukti &amp; test case (0–5)</label><input type="number" name="evidence" min="0" max="5" data-type="int"></div>
+      </div>
+      <div class="field hidden" id="rr-dup"><label>Duplikat dari laporan #</label><input type="number" name="duplicate_of" data-type="int"></div>
+      <div class="field hidden" id="rr-bonus"><label>Bonus rebuttal untuk defender (0–10, hanya jika rebuttal benar)</label><input type="number" name="rebuttal_bonus" min="0" max="10" data-type="int"></div>
+      <div class="field"><label>Catatan review (wajib selain valid)</label><textarea name="note" rows="4"></textarea></div>
+      <p class="small muted" id="rr-hint"></p>
+    </div>
+    <div class="dlg-foot"><button class="btn" value="cancel" type="submit">Batal</button><button class="btn btn-primary" type="button" id="rr-save">Simpan review</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-review-patch">
+  <form method="dialog" id="form-review-patch">
+    <div class="dlg-head"><h3 id="rp-title">Review patch</h3><button class="btn btn-sm btn-ghost" value="cancel" type="submit">✕</button></div>
+    <div class="dlg-body">
+      <input type="hidden" name="patch_id" data-type="int">
+      <div class="field"><label>Verdict</label>
+        <select name="verdict"><option value="accepted">accepted — patch diterima</option><option value="rejected">rejected — patch ditolak</option></select>
+      </div>
+      <div class="rubric">
+        <div class="field"><label>Patch memperbaiki root cause (0–20)</label><input type="number" name="rootfix" min="0" max="20" data-type="int"></div>
+        <div class="field"><label>Regression test (0–15)</label><input type="number" name="regression" min="0" max="15" data-type="int"></div>
+        <div class="field"><label>Perilaku normal &amp; edge case (0–10)</label><input type="number" name="edge" min="0" max="10" data-type="int"></div>
+        <div class="field"><label>Penjelasan teknis (0–5)</label><input type="number" name="explain" min="0" max="5" data-type="int"></div>
+      </div>
+      <div class="field"><label>Catatan review (wajib jika ditolak)</label><textarea name="note" rows="4"></textarea></div>
+      <p class="small muted">Defense ronde = skor patch terbaik yang sudah direview (maks 50). Server tidak menjalankan kode patch — penilaian berdasarkan pemeriksaan instruktur.</p>
+    </div>
+    <div class="dlg-foot"><button class="btn" value="cancel" type="submit">Batal</button><button class="btn btn-primary" type="button" id="rp-save">Simpan review</button></div>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}
+<script type="application/json" id="boot">{{ boot_json|safe }}</script>
+<script src="/static/chat.js"></script>
+<script src="/static/admin.js"></script>
+{% endblock %}

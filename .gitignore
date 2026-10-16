@@ -1,0 +1,51 @@
+# --- Rust ---
+/target/
+**/*.rs.bk
+*.pdb
+# Cargo.lock is intentionally committed (this is a binary crate).
+
+# --- Runtime data (CODEARENA_DATA, default ./data) ---
+/data/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# --- Environment / secrets (e.g. CODEARENA_ADMIN_PASSWORD) ---
+.env
+.env.*
+!.env.example
+
+# --- Python (challenges, tools/verify_challenges.py) ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# --- Node (tools/*.mjs) ---
+node_modules/
+npm-debug.log*
+
+# --- Test / browser-check output ---
+screenshots/
+*.png
+!static/**/*.png
+
+# --- Logs ---
+*.log
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Claude Code local state ---
+.claude/settings.local.json
+.claude/worktrees/

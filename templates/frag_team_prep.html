@@ -1,0 +1,16 @@
+{% match snapshot %}
+{% when Some with (s) %}
+<div class="notice ok">
+  <b>Locked defense snapshot v{{ s.version }}</b> dikunci {{ s.locked_at }}.<br>
+  <span class="sha">sha256 {{ s.sha }}</span><br>
+  <span class="small muted">Sumber: {{ s.source }}. Snapshot ini immutable — perbaikan selanjutnya dilakukan melalui patch draft.</span>
+</div>
+<details style="margin-top:.6rem"><summary>Lihat kode snapshot tim</summary><pre class="code" data-ln>{{ s.code }}</pre></details>
+{% when None %}
+<dl class="kv">
+  <dt>Fase</dt><dd>{% if phase == "DEFENSE_PREP" %}<span class="badge tone-analysis"><span class="ico">◆</span>Defense Preparation — draft dapat disimpan</span>{% else %}{% if phase == "BRIEFING" %}<span class="badge tone-idle"><span class="ico">○</span>Briefing — editor dibuka saat Defense Preparation</span>{% else %}{{ phase }}{% endif %}{% endif %}</dd>
+  <dt>Draft disimpan</dt><dd>{{ saves }} kali{% if saves > 0 %} · terakhir {{ updated_at }} oleh {{ updated_by }}{% endif %}</dd>
+  <dt>Tanda siap</dt><dd>{% if ready %}✓ ditandai siap{% else %}belum{% endif %}</dd>
+</dl>
+{% if saves == 0 %}<p class="small muted" style="margin-top:.5rem">Jika tim tidak menyimpan draft, starter code apa adanya akan dikunci sebagai snapshot.</p>{% endif %}
+{% endmatch %}

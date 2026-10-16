@@ -1,0 +1,108 @@
+<div class="inspector" data-team="{{ team_id }}">
+  <div class="row between">
+    <h2 style="margin:0">{{ team_name }}</h2>
+    <span class="mono" style="font-size:1.4rem;font-weight:800">{{ score.cumulative }} <span class="small muted">poin</span></span>
+  </div>
+  <div style="margin:.5rem 0">{% for m in members %}<span class="member"><span class="dot{% if m.online %} on{% endif %}"></span>{{ m.nim }}<span class="state">{% if m.online %}online{% else %}{% if m.joined %}offline{% else %}belum join{% endif %}{% endif %}</span></span>{% endfor %}</div>
+  {% if has_round %}
+  <dl class="kv">
+    <dt>Ronde</dt><dd>{{ round_label }} · <b>{{ phase_label }}</b></dd>
+    <dt>Challenge aktif</dt><dd>{{ challenge_label }}</dd>
+    <dt>Menyerang</dt><dd>→ <b>{{ target_name }}</b></dd>
+    <dt>Diserang oleh</dt><dd>← <b>{{ attacker_name }}</b></dd>
+    <dt>Locked snapshot</dt><dd class="mono small">{{ snapshot_label }}</dd>
+    <dt>Defense prep</dt><dd>{{ prep_label }}</dd>
+    <dt>Patch terakhir</dt><dd>{{ latest_patch_label }}</dd>
+    <dt>Regression test</dt><dd>{{ regression_progress }}</dd>
+  </dl>
+  <div class="grid grid-2" style="margin-top:.8rem;gap:.6rem">
+    <div class="status-box">
+      <div class="section-label">Attack status</div>
+      {% match attack_status %}{% when Some with (s) %}<span class="badge tone-{{ s.tone }}"><span class="ico">{{ s.icon }}</span>{{ s.label }}</span><div class="reason">{{ s.reason }}</div><div class="when" data-ts="{{ s.at }}"></div>{% when None %}<span class="muted">-</span>{% endmatch %}
+    </div>
+    <div class="status-box">
+      <div class="section-label">Defense status</div>
+      {% match defense_status %}{% when Some with (s) %}<span class="badge tone-{{ s.tone }}"><span class="ico">{{ s.icon }}</span>{{ s.label }}</span><div class="reason">{{ s.reason }}</div><div class="when" data-ts="{{ s.at }}"></div>{% when None %}<span class="muted">-</span>{% endmatch %}
+    </div>
+  </div>
+  {% endif %}
+
+  <h3 style="margin-top:1rem">Skor</h3>
+  <table>
+    <tbody>
+      <tr><td>Attack (ronde ini)</td><td class="num">{{ score.round.attack }}</td><td>Temuan valid (total)</td><td class="num">{{ score.valid_findings_total }}</td></tr>
+      <tr><td>Defense (ronde ini)</td><td class="num">{{ score.round.defense }}</td><td>Patch accepted (total)</td><td class="num">{{ score.accepted_patches_total }}</td></tr>
+      <tr><td>Rebuttal bonus</td><td class="num">{{ score.round.rebuttal }}</td><td>Koreksi instruktur</td><td class="num">{{ score.adjustments }}</td></tr>
+      <tr><td><b>Skor ronde</b> {% if score.round_finalized %}<span class="badge tone-success"><span class="ico">✓</span>final</span>{% else %}<span class="badge tone-review"><span class="ico">◷</span>live</span>{% endif %}</td><td class="num"><b>{{ score.round.total }}</b></td><td><b>Kumulatif</b></td><td class="num"><b>{{ score.cumulative }}</b></td></tr>
+    </tbody>
+  </table>
+
+  {% if has_round %}
+  <h3 style="margin-top:1rem">Attack report masuk ({{ incoming.len() }})</h3>
+  <div class="filterbar" data-filter-group="in">
+    <button class="filter-chip active" type="button" data-f="all">all</button>
+    <button class="filter-chip" type="button" data-f="valid">valid</button>
+    <button class="filter-chip" type="button" data-f="invalid">invalid</button>
+    <button class="filter-chip" type="button" data-f="pending">pending</button>
+    <button class="filter-chip" type="button" data-f="duplicate">duplicate</button>
+  </div>
+  <div data-filter-list="in">
+  {% if incoming.is_empty() %}<p class="muted small">Belum ada laporan masuk.</p>{% endif %}
+  {% for r in incoming %}
+    <article class="report" data-filter="{{ r.filter }}">
+      <div class="r-head"><span class="r-title">#{{ r.id }} {% if instructor %}{{ r.title }}{% else %}dari {{ r.attacker_name }}{% endif %}</span><span class="badge tone-{{ r.tone }}"><span class="ico">{{ r.icon }}</span>{{ r.status_label }}</span></div>
+      <div class="small muted">dari {{ r.attacker_name }} · submit {{ r.submitted_at }} · defense: {{ r.defense_state_label }}{% if !r.rebuttal.is_empty() %} · ada rebuttal{% endif %}{% if instructor && !r.possible_duplicate.is_empty() %} · <span class="tone-investigate">kemungkinan duplikat {{ r.possible_duplicate }}</span>{% endif %}</div>
+      {% if instructor %}<details><summary>Isi laporan</summary>{% include "_report_body.html" %}</details>{% endif %}
+    </article>
+  {% endfor %}
+  </div>
+
+  <h3 style="margin-top:1rem">Attack report keluar ({{ outgoing.len() }})</h3>
+  <div class="filterbar" data-filter-group="out">
+    <button class="filter-chip active" type="button" data-f="all">all</button>
+    <button class="filter-chip" type="button" data-f="valid">valid</button>
+    <button class="filter-chip" type="button" data-f="invalid">invalid</button>
+    <button class="filter-chip" type="button" data-f="pending">pending</button>
+    <button class="filter-chip" type="button" data-f="duplicate">duplicate</button>
+  </div>
+  <div data-filter-list="out">
+  {% if outgoing.is_empty() %}<p class="muted small">Belum ada laporan keluar.</p>{% endif %}
+  {% for r in outgoing %}
+    <article class="report" data-filter="{{ r.filter }}">
+      <div class="r-head"><span class="r-title">#{{ r.id }} {% if instructor %}{{ r.title }}{% else %}ke {{ r.target_name }}{% endif %}</span><span class="badge tone-{{ r.tone }}"><span class="ico">{{ r.icon }}</span>{{ r.status_label }}</span></div>
+      <div class="small muted">→ {{ r.target_name }} · {% if r.is_draft %}draft (belum disubmit){% else %}submit {{ r.submitted_at }}{% endif %}{% if r.status == "valid" %} · {{ r.points }} poin rubric{% endif %}</div>
+      {% if instructor %}<details><summary>Isi laporan</summary>{% include "_report_body.html" %}</details>{% endif %}
+    </article>
+  {% endfor %}
+  </div>
+
+  <h3 style="margin-top:1rem">Patch ({{ patches.len() }})</h3>
+  {% if patches.is_empty() %}<p class="muted small">Belum ada patch.</p>{% endif %}
+  {% for p in patches %}
+  <article class="report">
+    <div class="r-head"><span class="r-title">v{{ p.version }}</span><span class="badge tone-{{ p.tone }}"><span class="ico">{{ p.icon }}</span>{{ p.status_label }}</span></div>
+    <div class="small muted">{% if p.is_draft %}draft {{ p.updated_at }}{% else %}submit {{ p.submitted_at }}{% endif %} · {{ p.tests }} regression test · menangani {{ p.addressed }}{% if p.reviewed %} · rubric {{ p.points }}/50{% endif %}</div>
+    {% if instructor %}<details><summary>Isi patch</summary><p style="white-space:pre-wrap">{{ p.root_cause }}</p><pre class="code" data-ln>{{ p.code }}</pre><pre class="code" data-ln style="margin-top:.4rem">{{ p.regression_tests }}</pre></details>{% endif %}
+  </article>
+  {% endfor %}
+  {% endif %}
+
+  <h3 style="margin-top:1rem">Histori perubahan skor</h3>
+  {% if score_history.is_empty() %}<p class="muted small">Belum ada perubahan skor.</p>{% endif %}
+  <table>
+    <tbody>
+    {% for (at, label, pts) in score_history %}
+      <tr><td class="mono small nowrap">{{ at }}</td><td>{{ label }}</td><td class="num mono">{{ pts }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  {% if has_round %}
+  <h3 style="margin-top:1rem">Timeline aktivitas tim</h3>
+  <ul class="feed">
+  {% for a in activity %}
+    <li><time>{{ a.at }}</time><span><span class="tone-{{ a.tone }}">{{ a.icon }}</span> {% if !a.side.is_empty() %}<b class="upper small">{{ a.side }}</b> {% endif %}{{ a.message }}</span></li>
+  {% endfor %}
+  </ul>
+  {% endif %}
+</div>

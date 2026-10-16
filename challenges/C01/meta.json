@@ -1,0 +1,69 @@
+{
+  "id": "C01",
+  "title": "Shared Inventory",
+  "materi": [1],
+  "case": "Inventaris gudang laboratorium kampus",
+  "topics": ["konsep class", "object/instance", "struktur class", "attribute", "instance attribute", "class attribute", "membuat object", "akses attribute & method", "pemodelan objek"],
+  "summary": "Kampus memiliki beberapa gudang laboratorium. Setiap objek Gudang seharusnya menyimpan stoknya sendiri, tetapi petugas melaporkan barang yang dimasukkan ke Gudang A tiba-tiba 'muncul' di Gudang B.",
+  "objectives": [
+    "O1: menjelaskan struktur class Python (class body, __init__, self) dan kapan sebuah attribute menjadi milik class atau milik instance.",
+    "O2: membuat beberapa object dari satu class dan membuktikan bahwa state tiap instance independen.",
+    "O3: memodelkan permasalahan gudang menjadi attribute dan method yang konsisten dengan spesifikasi."
+  ],
+  "spec": [
+    "Gudang(nama) membuat gudang baru dengan stok kosong; setiap gudang memiliki stok sendiri.",
+    "tambah(kode, jumlah) menambah stok; jumlah <= 0 ditolak dengan ValueError.",
+    "ambil(kode, jumlah) mengurangi stok; jumlah melebihi stok ditolak dengan ValueError.",
+    "jumlah_stok(kode) mengembalikan jumlah unit; kode yang tidak terdaftar bernilai 0 (bukan error).",
+    "jenis_barang() menghitung banyaknya jenis barang yang stoknya > 0.",
+    "ringkasan() mengembalikan '<nama>: <jenis> jenis, <total> unit'.",
+    "Gudang.satuan adalah class attribute yang sama untuk semua gudang."
+  ],
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "Stok dibagi bersama semua gudang",
+      "location": "class Gudang: stok = {}",
+      "concept": "class attribute vs instance attribute",
+      "scenario": "dict `stok` didefinisikan di badan class sehingga satu objek dict dipakai semua instance. self.stok[kode] = ... memodifikasi objek bersama itu, bukan membuat attribute baru.",
+      "attack": "a = Gudang('A'); b = Gudang('B'); a.tambah('PC', 3); b.jumlah_stok('PC') -> 3 (seharusnya 0).",
+      "fix": "Pindahkan inisialisasi ke __init__: self.stok = {}."
+    },
+    {
+      "id": "B2",
+      "title": "Barang tak terdaftar memicu KeyError",
+      "location": "Gudang.jumlah_stok",
+      "concept": "instance method dan akses attribute",
+      "scenario": "Method mengakses self.stok[kode] langsung, padahal spesifikasi meminta nilai 0 untuk kode yang belum pernah ditambahkan.",
+      "attack": "Gudang('C').jumlah_stok('TIDAK-ADA') -> KeyError.",
+      "fix": "return self.stok.get(kode, 0)."
+    },
+    {
+      "id": "B3",
+      "title": "Barang habis masih dihitung sebagai jenis",
+      "location": "Gudang.ambil / Gudang.jenis_barang",
+      "concept": "pemodelan objek dan konsistensi state",
+      "scenario": "Ketika stok mencapai 0, key tetap tersimpan sehingga jenis_barang() menghitung barang yang sudah habis.",
+      "attack": "tambah('PROYEKTOR', 2); tambah('SPIDOL', 10); ambil('PROYEKTOR', 2); jenis_barang() -> 2 (seharusnya 1).",
+      "fix": "Hapus key ketika stok habis atau hitung hanya qty > 0."
+    }
+  ],
+  "attack_procedure": [
+    "Baca spesifikasi dan locked snapshot target.",
+    "Buat minimal dua object Gudang dan amati apakah state-nya independen.",
+    "Uji batas: kode yang tidak terdaftar dan stok yang dihabiskan.",
+    "Tulis test case unittest yang gagal pada snapshot target dan lulus pada perilaku yang benar.",
+    "Laporkan lokasi, input pemicu, expected vs actual, dan root cause dalam istilah PBO."
+  ],
+  "rubric_notes": {
+    "attack": "Root cause B1 harus menyebut perbedaan class attribute dan instance attribute (bukan sekadar 'dict salah').",
+    "defense": "Patch B1 yang hanya me-reset stok di tambah() tidak memperbaiki root cause. Regression test harus membuat >= 2 instance."
+  },
+  "concept_map": [
+    {"topic": "class attribute", "bug": "B1", "objective": "O1"},
+    {"topic": "instance attribute", "bug": "B1", "objective": "O2"},
+    {"topic": "object/instance", "bug": "B1", "objective": "O2"},
+    {"topic": "akses attribute & method", "bug": "B2", "objective": "O3"},
+    {"topic": "pemodelan objek", "bug": "B3", "objective": "O3"}
+  ]
+}

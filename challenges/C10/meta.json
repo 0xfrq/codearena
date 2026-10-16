@@ -1,0 +1,63 @@
+{
+  "id": "C10",
+  "title": "Abstract Contract Violation",
+  "materi": [5],
+  "case": "Metode pembayaran loket administrasi kampus",
+  "topics": ["abstract method", "inheritance", "overriding", "derived class"],
+  "summary": "Loket administrasi mendefinisikan kontrak MetodePembayaran. Kontrak ternyata bisa diinstansiasi, Transfer crash saat menghitung tagihan, dan QRIS gagal ketika diproses bersama metode lain.",
+  "objectives": [
+    "O1: menjelaskan fungsi abstract base class (ABC) dan @abstractmethod sebagai kontrak.",
+    "O2: mengidentifikasi subclass yang belum memenuhi kontrak dan dampaknya saat runtime.",
+    "O3: menjelaskan bahwa ABC hanya memeriksa keberadaan method, bukan signature — sehingga signature tetap tanggung jawab developer."
+  ],
+  "spec": [
+    "MetodePembayaran tidak dapat diinstansiasi (TypeError); subclass yang belum mengimplementasikan semua abstract method juga tidak dapat diinstansiasi.",
+    "Setiap metode konkret mengimplementasikan biaya_admin(jumlah) dan bayar(jumlah).",
+    "Biaya admin: Tunai 0, Transfer 2.500 flat, QRIS 0,7% (dibulatkan ke bawah).",
+    "bayar(jumlah) mengembalikan '<KODE> <jumlah + biaya admin>'; jumlah <= 0 ditolak.",
+    "proses_semua(daftar, jumlah) memanggil bayar(jumlah) pada setiap metode."
+  ],
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "@abstractmethod tanpa ABC",
+      "location": "class MetodePembayaran:",
+      "concept": "abstract method membutuhkan ABCMeta",
+      "scenario": "Decorator @abstractmethod hanya menandai fungsi; tanpa ABC/ABCMeta, Python tidak menegakkannya sehingga kontrak dan subclass tidak lengkap dapat diinstansiasi.",
+      "attack": "MetodePembayaran('A') berhasil dibuat; bayar() mengembalikan None.",
+      "fix": "class MetodePembayaran(ABC)."
+    },
+    {
+      "id": "B2",
+      "title": "Transfer tidak mengimplementasikan biaya_admin",
+      "location": "class Transfer",
+      "concept": "kewajiban implementasi abstract method",
+      "scenario": "Transfer mewarisi stub abstrak yang mengembalikan None; total_tagihan menjumlahkan int + None.",
+      "attack": "Transfer('A').bayar(100000) -> TypeError: unsupported operand type(s) for +: 'int' and 'NoneType'.",
+      "fix": "Implementasikan biaya_admin yang mengembalikan 2500."
+    },
+    {
+      "id": "B3",
+      "title": "QRIS melanggar signature kontrak",
+      "location": "QRIS.bayar(self)",
+      "concept": "kontrak abstract method dan polimorfisme",
+      "scenario": "QRIS.bayar tidak menerima jumlah dan memakai attribute yang tidak ada. ABC tidak memeriksa signature sehingga error baru muncul saat diproses polimorfik.",
+      "attack": "QRIS('A').bayar(100000) -> TypeError; proses_semua([...QRIS...], 10000) crash.",
+      "fix": "def bayar(self, jumlah): return f'{self.kode} {self.total_tagihan(jumlah)}'."
+    }
+  ],
+  "attack_procedure": [
+    "Coba instansiasi class kontrak dan subclass yang tidak lengkap.",
+    "Panggil setiap metode melalui antarmuka kontrak (bayar(jumlah)).",
+    "Proses beberapa metode sekaligus dengan proses_semua."
+  ],
+  "rubric_notes": {
+    "attack": "B1 harus menyebut bahwa @abstractmethod tidak berpengaruh tanpa ABC/ABCMeta.",
+    "defense": "Regression test B1 sebaiknya membuktikan bahwa subclass tidak lengkap ditolak, bukan hanya class kontrak."
+  },
+  "concept_map": [
+    {"topic": "abstract method", "bug": "B1", "objective": "O1"},
+    {"topic": "abstract method", "bug": "B2", "objective": "O2"},
+    {"topic": "overriding", "bug": "B3", "objective": "O3"}
+  ]
+}

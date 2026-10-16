@@ -1,0 +1,68 @@
+{
+  "id": "C03",
+  "title": "The Invisible Vault",
+  "materi": [2],
+  "case": "Rekening tabungan mahasiswa di koperasi kampus",
+  "topics": ["visibility property", "encapsulation", "public/protected/private", "name mangling", "pengendalian akses attribute", "validasi via property"],
+  "summary": "Koperasi kampus menyimpan saldo tabungan sebagai attribute privat. Auditor menemukan saldo yang bisa diubah dari luar, setoran negatif yang lolos, dan penarikan tabungan pelajar yang 'tidak terlihat' di saldo.",
+  "objectives": [
+    "O1: menjelaskan konsep public, protected (_x), dan private (__x) di Python serta batasannya (konvensi vs name mangling).",
+    "O2: menerapkan encapsulation dengan property read-only dan validasi data.",
+    "O3: menganalisis efek name mangling pada class turunan."
+  ],
+  "spec": [
+    "Tabungan(pemilik, saldo_awal=0); saldo awal negatif ditolak.",
+    "saldo adalah property READ-ONLY; assignment t.saldo = x harus gagal (AttributeError).",
+    "setor(jumlah) hanya menerima jumlah > 0.",
+    "tarik(jumlah) menolak jumlah <= 0 dan jumlah yang melebihi saldo.",
+    "TabunganPelajar.tarik membatasi 500.000 per transaksi dan WAJIB mengurangi saldo yang sama yang dibaca property saldo.",
+    "riwayat() mengembalikan salinan daftar transaksi."
+  ],
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "Saldo dapat ditimpa dari luar",
+      "location": "@saldo.setter",
+      "concept": "pengendalian akses attribute / property read-only",
+      "scenario": "Setter tanpa validasi membuka jalan untuk mengubah saldo privat secara langsung sehingga encapsulation tidak berarti.",
+      "attack": "t = Tabungan('A', 1000); t.saldo = 999_999_999; t.saldo -> 999999999.",
+      "fix": "Hapus setter (property read-only) atau batasi perubahan hanya lewat method internal."
+    },
+    {
+      "id": "B2",
+      "title": "Setoran negatif lolos validasi",
+      "location": "Tabungan.setor",
+      "concept": "validasi data pada titik akses (encapsulation)",
+      "scenario": "setor() tidak memeriksa jumlah sehingga setor(-x) berfungsi sebagai penarikan tanpa batas dan tanpa biaya.",
+      "attack": "t.setor(-50_000) mengurangi saldo tanpa error.",
+      "fix": "Tolak jumlah <= 0 dengan ValueError."
+    },
+    {
+      "id": "B3",
+      "title": "Penarikan pelajar masuk ke 'vault' tersembunyi",
+      "location": "TabunganPelajar.tarik: self.__saldo = ...",
+      "concept": "name mangling pada class turunan",
+      "scenario": "Di dalam TabunganPelajar, self.__saldo di-mangle menjadi self._TabunganPelajar__saldo. Saldo milik parent (_Tabungan__saldo) tidak berubah sehingga uang bisa ditarik berulang kali.",
+      "attack": "p = TabunganPelajar('A', 150_000); p.tarik(100_000); p.saldo -> 150000; vars(p) memuat _TabunganPelajar__saldo.",
+      "fix": "Sediakan method protected di parent (mis. _ubah_saldo) dan gunakan dari class turunan."
+    }
+  ],
+  "attack_procedure": [
+    "Petakan attribute public/protected/private pada locked snapshot.",
+    "Coba assignment langsung ke property dan amati apakah validasi berjalan.",
+    "Gunakan vars(obj) untuk melihat nama attribute hasil name mangling.",
+    "Bandingkan perilaku class parent dan class turunan untuk operasi yang sama."
+  ],
+  "rubric_notes": {
+    "attack": "Laporan B3 harus menunjukkan nama attribute hasil mangling (_TabunganPelajar__saldo) sebagai bukti.",
+    "defense": "Mengganti __saldo menjadi public 'saldo' memperbaiki gejala B3 tetapi merusak encapsulation (B1) — tidak mendapat poin root cause penuh."
+  },
+  "concept_map": [
+    {"topic": "pengendalian akses attribute", "bug": "B1", "objective": "O2"},
+    {"topic": "visibility property", "bug": "B1", "objective": "O1"},
+    {"topic": "validasi via property", "bug": "B2", "objective": "O2"},
+    {"topic": "encapsulation", "bug": "B2", "objective": "O2"},
+    {"topic": "name mangling", "bug": "B3", "objective": "O3"},
+    {"topic": "public/protected/private", "bug": "B3", "objective": "O1"}
+  ]
+}

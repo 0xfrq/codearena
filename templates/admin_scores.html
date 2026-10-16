@@ -1,0 +1,39 @@
+<div class="grid grid-2">
+  <div class="card table-scroll">
+    <h3>Leaderboard (resmi dari server)</h3>
+    <table>
+      <thead><tr><th>#</th><th>Kelompok</th><th class="num">Attack</th><th class="num">Defense</th><th class="num">Rebuttal</th><th class="num">Ronde</th><th class="num">Koreksi</th><th class="num">Kumulatif</th><th class="num">Valid</th><th class="num">Patch ✓</th></tr></thead>
+      <tbody>
+      {% for s in rows %}
+        <tr><td>{{ s.rank }}</td><td><b>{{ s.team_name }}</b></td><td class="num">{{ s.attack }}</td><td class="num">{{ s.defense }}</td><td class="num">{{ s.rebuttal }}</td>
+          <td class="num">{{ s.round_total }} {% if s.finalized %}<span class="tone-success" title="final">✓</span>{% else %}<span class="tone-review" title="live">◷</span>{% endif %}</td>
+          <td class="num">{{ s.adjustments }}</td><td class="num"><b>{{ s.cumulative }}</b></td><td class="num">{{ s.valid_findings }}</td><td class="num">{{ s.accepted_patches }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="small muted">Kolom ronde = ronde terbaru (◷ live sampai difinalisasi, ✓ final). Skor final tidak berubah kecuali melalui koreksi tercatat.</p>
+  </div>
+  <form class="card" data-api="/api/admin/score/adjust" data-refresh="scores" data-ok="Koreksi skor dicatat" data-confirm="Catat koreksi skor? Tindakan ini masuk audit log." data-reset="1">
+    <h3>Koreksi skor (tercatat)</h3>
+    <div class="field-row">
+      <div class="field"><label>Kelompok</label><select name="team_id" data-type="int">{% for (tid, tname) in teams %}<option value="{{ tid }}">{{ tname }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Poin (−100…100)</label><input type="number" name="points" min="-100" max="100" data-type="int" required></div>
+    </div>
+    <input type="hidden" name="round_id" value="{{ round_id }}" data-type="int">
+    <div class="field"><label>Alasan (wajib)</label><input type="text" name="reason" maxlength="1000" required></div>
+    <button class="btn btn-review" type="submit">Catat koreksi</button>
+  </form>
+</div>
+{% if !adjustments.is_empty() %}
+<div class="card" style="margin-top:1rem">
+  <h3>Riwayat koreksi</h3>
+  <table><thead><tr><th>Waktu</th><th>Kelompok</th><th class="num">Poin</th><th>Ronde</th><th>Alasan</th></tr></thead>
+  <tbody>{% for (at, team, pts, rid, reason) in adjustments %}<tr><td class="mono small">{{ at }}</td><td>{{ team }}</td><td class="num">{{ pts }}</td><td>{{ rid }}</td><td>{{ reason }}</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endif %}
+{% for (num, list) in finalized_rounds %}
+<details class="card" style="margin-top:1rem"><summary>Hasil final ronde {{ num }}</summary>
+  <table><thead><tr><th>Kelompok</th><th class="num">Attack</th><th class="num">Defense</th><th class="num">Rebuttal</th><th class="num">Total</th></tr></thead>
+  <tbody>{% for (team, a, d, rb, t) in list %}<tr><td>{{ team }}</td><td class="num">{{ a }}</td><td class="num">{{ d }}</td><td class="num">{{ rb }}</td><td class="num"><b>{{ t }}</b></td></tr>{% endfor %}</tbody></table>
+</details>
+{% endfor %}

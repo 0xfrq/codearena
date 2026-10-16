@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Live Arena — Code Arena{% endblock %}
+{% block bodyclass %}arena-page{% endblock %}
+{% block nav %}{% if instructor %}<a href="/admin">Dashboard instruktur</a>{% else %}<a href="/team">Dashboard tim</a>{% endif %}<a href="/arena" class="active">Live Arena</a>{% endblock %}
+{% block content %}
+<div class="arena-body">
+  <section class="summary-strip">
+    <div class="summary-main">
+      <div class="section-label" id="a-session">{{ session_name }}</div>
+      <div class="round-line"><span class="challenge" id="a-challenge">Belum ada ronde</span></div>
+      <div class="round-line" style="margin-top:.25rem"><span id="a-round" class="pill">-</span><span id="a-phase" class="badge tone-idle"><span class="ico">○</span>-</span><span class="clock" id="a-clock">--:--</span></div>
+    </div>
+    <button class="stat" type="button" data-list="teams"><span class="v" id="s-teams">0</span><span class="k">Kelompok</span></button>
+    <button class="stat" type="button" data-list="online"><span class="v" id="s-online">0</span><span class="k">Peserta online</span></button>
+    <button class="stat" type="button" data-list="reports"><span class="v" id="s-reports">0</span><span class="k">Attack report</span></button>
+    <button class="stat" type="button" data-list="valid"><span class="v" id="s-valid">0</span><span class="k">Temuan valid</span></button>
+    <button class="stat" type="button" data-list="patches"><span class="v" id="s-patches">0</span><span class="k">Patch terverifikasi</span></button>
+    <button class="stat" type="button" data-list="awaiting"><span class="v" id="s-awaiting">0</span><span class="k">Tim menunggu review</span></button>
+  </section>
+  <section class="timeline" id="a-timeline" aria-label="Timeline ronde"></section>
+  <section class="arena-toolbar">
+    <div class="btn-group" role="tablist" aria-label="Tampilan arena">
+      <button class="btn btn-sm active" type="button" data-view="graph">Network view</button>
+      <button class="btn btn-sm" type="button" data-view="board">Team board</button>
+    </div>
+    <div class="row" id="a-filters" style="gap:.35rem"></div>
+    <div class="row" style="margin-left:auto;gap:.35rem">
+      <details class="small" style="position:relative"><summary>Legenda</summary>
+        <div class="card" style="position:absolute;right:0;z-index:40;width:360px;margin-top:.4rem" id="a-legend"></div>
+      </details>
+      <button class="btn btn-sm" type="button" data-zoom="-1" title="Perkecil">−</button>
+      <button class="btn btn-sm" type="button" data-zoom="0" title="Ukuran normal">100%</button>
+      <button class="btn btn-sm" type="button" data-zoom="1" title="Perbesar">+</button>
+    </div>
+  </section>
+  <section class="arena-main">
+    <div class="arena-stage" id="a-stage">
+      <div id="a-graph"></div>
+      <div id="a-board" class="board hidden"></div>
+    </div>
+    <aside class="arena-side">
+      <div class="card"><div class="card-title"><h3>Leaderboard</h3><span class="small muted" id="a-lb-note"></span></div><div id="a-leaderboard"></div></div>
+      <div class="card side-scroll" style="flex:1;min-height:200px"><div class="card-title"><h3>Attack &amp; defense feed</h3></div><ul class="feed" id="a-feed"></ul></div>
+    </aside>
+  </section>
+</div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head"><h3 id="drawer-title">Detail</h3><button class="btn btn-sm btn-ghost" type="button" id="drawer-close" aria-label="Tutup">✕</button></div>
+  <div class="drawer-body" id="drawer-body"></div>
+</aside>
+{% endblock %}
+{% block scripts %}
+<script type="application/json" id="boot">{{ boot_json|safe }}</script>
+<script src="/static/arena.js"></script>
+{% endblock %}

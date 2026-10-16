@@ -1,0 +1,64 @@
+{
+  "id": "C04",
+  "title": "Method Dispatch Failure",
+  "materi": [3],
+  "case": "Penggajian pegawai kampus",
+  "topics": ["class method", "static method", "class attribute", "method"],
+  "summary": "Bagian keuangan mengimpor data dosen dari CSV, tetapi semua hasil impor berubah menjadi Pegawai biasa, perubahan tarif lembur dosen justru mengubah tarif semua pegawai, dan jumlah pegawai tercatat ganda.",
+  "objectives": [
+    "O1: membedakan instance method, @classmethod (menerima cls), dan @staticmethod (tanpa self/cls).",
+    "O2: menggunakan classmethod sebagai alternative constructor (factory) yang menghormati subclass.",
+    "O3: memilih jenis method yang tepat berdasarkan data yang dibutuhkan method tersebut."
+  ],
+  "spec": [
+    "Pegawai.dari_csv('Nama;gaji') adalah factory; Dosen.dari_csv(...) harus menghasilkan object Dosen.",
+    "Setiap object yang dibuat (langsung atau via factory) menambah Pegawai.jumlah_pegawai tepat 1.",
+    "X.ubah_tarif_lembur(t) mengubah tarif lembur class X saja (dan turunan X yang tidak meng-override).",
+    "Pegawai.pajak(nominal) adalah utilitas statis 5% (dibulatkan ke bawah).",
+    "gaji_bersih(jam_lembur) = (gaji_pokok + jam * tarif_lembur) - pajak."
+  ],
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "Factory mengabaikan cls",
+      "location": "Pegawai.dari_csv",
+      "concept": "class method sebagai alternative constructor",
+      "scenario": "Factory memanggil Pegawai(...) secara hardcode sehingga Dosen.dari_csv menghasilkan Pegawai dengan tarif lembur yang salah.",
+      "attack": "type(Dosen.dari_csv('A;7000000')) -> Pegawai; gaji lembur dihitung dengan 50.000/jam.",
+      "fix": "return cls(nama, int(gaji))."
+    },
+    {
+      "id": "B2",
+      "title": "Static method mengubah class yang salah",
+      "location": "Pegawai.ubah_tarif_lembur",
+      "concept": "static method vs class method",
+      "scenario": "Static method tidak menerima cls sehingga terpaksa menulis Pegawai.tarif_lembur. Memanggilnya via Dosen tetap mengubah Pegawai.",
+      "attack": "Dosen.ubah_tarif_lembur(80_000); Dosen.tarif_lembur -> 75000, Pegawai.tarif_lembur -> 80000.",
+      "fix": "Jadikan @classmethod dan tulis cls.tarif_lembur."
+    },
+    {
+      "id": "B3",
+      "title": "Counter pegawai ganda",
+      "location": "Pegawai.dari_csv",
+      "concept": "class attribute sebagai state bersama + alur constructor",
+      "scenario": "Factory menaikkan counter padahal __init__ (yang dipanggil factory) sudah menaikkannya.",
+      "attack": "n = Pegawai.jumlah_pegawai; Pegawai.dari_csv('A;1'); Pegawai.jumlah_pegawai - n -> 2.",
+      "fix": "Hapus increment di factory."
+    }
+  ],
+  "attack_procedure": [
+    "Panggil factory dan method kelas melalui subclass, bukan hanya melalui Pegawai.",
+    "Periksa type(obj) dan nilai class attribute pada Pegawai, Dosen, dan Satpam setelah tiap operasi.",
+    "Hitung perubahan Pegawai.jumlah_pegawai untuk setiap jalur pembuatan object."
+  ],
+  "rubric_notes": {
+    "attack": "Root cause B2 harus menyebut bahwa staticmethod tidak menerima cls sehingga tidak bisa polimorfik terhadap class pemanggil.",
+    "defense": "Regression test harus memanggil method melalui subclass dan mengembalikan state class attribute setelah test."
+  },
+  "concept_map": [
+    {"topic": "class method", "bug": "B1", "objective": "O2"},
+    {"topic": "static method", "bug": "B2", "objective": "O1"},
+    {"topic": "class method", "bug": "B2", "objective": "O3"},
+    {"topic": "class attribute", "bug": "B3", "objective": "O3"}
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "id": "C11",
+  "title": "Mutable Evidence",
+  "materi": [5],
+  "case": "Pencatatan transaksi harian kantin kampus",
+  "topics": ["data class", "attribute mutability", "object/instance"],
+  "summary": "Kantin kampus mencatat transaksi dengan dataclass. Auditor menemukan nilai transaksi dapat diubah setelah dicatat, kategori laporan satu hari muncul di laporan hari lain, dan arsip laporan ikut berubah ketika laporan aktif ditambah.",
+  "objectives": [
+    "O1: menggunakan dataclass (field, default_factory, frozen, replace) secara tepat.",
+    "O2: menjelaskan mutability attribute dan aliasing referensi objek mutable.",
+    "O3: merancang objek bukti (evidence) yang immutable dan salinan yang benar-benar independen."
+  ],
+  "spec": [
+    "Transaksi(kode, jumlah, metode='tunai') bersifat immutable (FrozenInstanceError saat di-assign).",
+    "LaporanHarian(tanggal) memiliki list transaksi dan kategori miliknya sendiri; kategori default ['umum'].",
+    "KATEGORI_DEFAULT tidak boleh berubah oleh operasi pada laporan mana pun.",
+    "tambah(trx) menolak jumlah <= 0; total() menjumlahkan transaksi.",
+    "salin() menghasilkan arsip independen: perubahan laporan aktif tidak mengubah arsip."
+  ],
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "Default kategori menunjuk list global",
+      "location": "LaporanHarian.__post_init__",
+      "concept": "attribute mutability dan aliasing",
+      "scenario": "self.kategori = KATEGORI_DEFAULT menyimpan referensi ke list global yang sama untuk semua laporan.",
+      "attack": "a.kategori.append('kantin'); b.kategori -> ['umum', 'kantin']; KATEGORI_DEFAULT ikut berubah.",
+      "fix": "field(default_factory=lambda: list(KATEGORI_DEFAULT))."
+    },
+    {
+      "id": "B2",
+      "title": "Bukti transaksi dapat diubah",
+      "location": "@dataclass class Transaksi",
+      "concept": "dataclass frozen untuk objek immutable",
+      "scenario": "Transaksi dibuat mutable sehingga jumlah bisa diubah setelah dicatat dan total laporan berubah diam-diam.",
+      "attack": "t = Transaksi('T9', 50000); t.jumlah = 1 berhasil.",
+      "fix": "@dataclass(frozen=True)."
+    },
+    {
+      "id": "B3",
+      "title": "Arsip berbagi list dengan laporan aktif",
+      "location": "LaporanHarian.salin",
+      "concept": "shallow copy pada dataclass.replace",
+      "scenario": "replace(self) menyalin referensi list transaksi/kategori, bukan isinya.",
+      "attack": "arsip = lap.salin(); lap.tambah(Transaksi('T2', 99000)); arsip.total() ikut bertambah.",
+      "fix": "replace(self, transaksi=list(self.transaksi), kategori=list(self.kategori))."
+    }
+  ],
+  "attack_procedure": [
+    "Buat beberapa laporan dan periksa identitas (is / id()) list di dalamnya.",
+    "Coba mengubah field transaksi yang sudah dicatat.",
+    "Buat arsip dengan salin(), ubah laporan aktif, bandingkan."
+  ],
+  "rubric_notes": {
+    "attack": "Bukti terbaik menampilkan id() objek list yang sama pada dua laporan.",
+    "defense": "Patch B2 yang hanya menambahkan validasi di tambah() tidak membuat bukti immutable."
+  },
+  "concept_map": [
+    {"topic": "attribute mutability", "bug": "B1", "objective": "O2"},
+    {"topic": "data class", "bug": "B2", "objective": "O1"},
+    {"topic": "attribute mutability", "bug": "B3", "objective": "O3"}
+  ]
+}

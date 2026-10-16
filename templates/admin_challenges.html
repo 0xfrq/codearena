@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Challenge bank — Code Arena{% endblock %}
+{% block nav %}<a href="/admin">Dashboard</a><a href="/arena">Live Arena</a>{% endblock %}
+{% block content %}
+<main class="wrap">
+  <h1>Challenge bank</h1>
+  <p class="muted">12 challenge materi + 1 integrated capstone. Setiap challenge memiliki tujuan pembelajaran, starter code, spesifikasi, skenario bug, prosedur attack, reference solution, regression test, dan rubric. Verifikasi otomatis: <span class="mono">python tools/verify_challenges.py</span>.</p>
+  <div class="card table-scroll">
+    <table>
+      <thead><tr><th>ID</th><th>Judul</th><th>Materi</th><th class="num">Bug</th><th></th></tr></thead>
+      <tbody>
+      {% for (id, title, materi, bugs, capstone) in rows %}
+        <tr><td class="mono">{{ id }}</td><td><a href="/admin/challenges/{{ id }}">{{ title }}</a>{% if capstone.clone() %} <span class="badge tone-review">capstone</span>{% endif %}</td><td>{{ materi }}</td><td class="num">{{ bugs }}</td><td><a href="/admin/challenges/{{ id }}">answer key →</a></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <h2 style="margin-top:1.5rem">Cakupan materi resmi</h2>
+  <div class="card table-scroll">
+    <table class="coverage">
+      <thead><tr><th>Materi</th><th>Subtopik</th><th>Challenge</th></tr></thead>
+      <tbody>
+      {% for (m, topic, ids) in coverage %}
+        <tr><td>M{{ m }}</td><td>{{ topic }}</td><td class="{% if ids.is_empty() %}miss{% else %}ok{% endif %} mono">{% if ids.is_empty() %}✕ belum tercakup{% else %}{% for i in ids %}{{ i }} {% endfor %}{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</main>
+{% endblock %}
+{% block scripts %}<script>CA.lineNumbers(document);</script>{% endblock %}

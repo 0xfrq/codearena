@@ -1,0 +1,36 @@
+<div class="grid grid-2">
+  <form class="card" data-api="/api/admin/roster/add" data-refresh="roster teams" data-ok="Roster diperbarui" data-reset="1">
+    <h3>Tambah / aktifkan NIM</h3>
+    <div class="field"><label>Satu NIM per baris (opsional: <span class="mono">NIM,Nama</span>)</label><textarea name="text" rows="5" spellcheck="false" placeholder="25032014099&#10;25032014100,Nama Mahasiswa"></textarea></div>
+    <button class="btn btn-primary" type="submit">Simpan ke roster</button>
+  </form>
+  <div class="card">
+    <h3>Ringkasan roster</h3>
+    <p><b>{{ active }}</b> NIM aktif dari <b>{{ rows.len() }}</b> terdaftar.</p>
+    <p class="small muted">NIM yang dinonaktifkan tidak dapat join dan sesi login-nya dicabut. "Lepas perangkat" mencabut login NIM agar dapat join dari perangkat lain (mis. laptop mati). NIM disimpan sebagai string.</p>
+  </div>
+</div>
+<div class="card table-scroll" style="margin-top:1rem">
+  <table>
+    <thead><tr><th>NIM</th><th>Nama</th><th>Roster</th><th>Sesi ini</th><th>Kelompok</th><th class="right">Aksi</th></tr></thead>
+    <tbody>
+    {% for (nim, name, active, joined, online, team) in rows %}
+      <tr>
+        <td class="mono">{{ nim }}</td>
+        <td>{{ name }}</td>
+        <td>{% if active.clone() %}<span class="badge tone-success"><span class="ico">✓</span>aktif</span>{% else %}<span class="badge tone-fail"><span class="ico">✕</span>nonaktif</span>{% endif %}</td>
+        <td>{% if online.clone() %}<span class="dot on"></span> online{% else %}{% if joined.clone() %}<span class="dot"></span> offline{% else %}<span class="muted">belum join</span>{% endif %}{% endif %}</td>
+        <td>{{ team }}</td>
+        <td class="right nowrap">
+          {% if active.clone() %}
+          <button class="btn btn-sm btn-ghost" type="button" data-api="/api/admin/roster/set" data-body='{"nim":"{{ nim }}","active":false}' data-confirm="Nonaktifkan NIM {{ nim }}?" data-refresh="roster">Nonaktifkan</button>
+          {% else %}
+          <button class="btn btn-sm" type="button" data-api="/api/admin/roster/set" data-body='{"nim":"{{ nim }}","active":true}' data-refresh="roster">Aktifkan</button>
+          {% endif %}
+          {% if joined.clone() %}<button class="btn btn-sm btn-ghost" type="button" data-api="/api/admin/participant/release" data-body='{"nim":"{{ nim }}"}' data-confirm="Lepas perangkat untuk NIM {{ nim }}? Mahasiswa harus join ulang." data-refresh="roster" data-ok="Perangkat dilepas">Lepas perangkat</button>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>

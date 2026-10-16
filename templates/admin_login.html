@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Login instruktur — Code Arena{% endblock %}
+{% block nav %}<a href="/">Join mahasiswa</a>{% endblock %}
+{% block content %}
+<main class="wrap" style="max-width:460px;margin-top:3rem">
+  <form class="card" id="login-form">
+    <div class="section-label">Mode instruktur</div>
+    <h2>Login instruktur</h2>
+    <p class="small muted">Autentikasi terpisah dari NIM mahasiswa. Password diatur lewat variabel lingkungan <span class="mono">CODEARENA_ADMIN_PASSWORD</span> atau dibuat otomatis saat server pertama kali dijalankan (lihat <span class="mono">data/admin-password.txt</span>).</p>
+    <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" required></div>
+    <button class="btn btn-primary" type="submit" style="width:100%">Masuk</button>
+    <p id="login-error" class="small" style="color:var(--threat);margin-top:.6rem" role="alert"></p>
+  </form>
+</main>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = document.getElementById('login-error');
+  err.textContent = '';
+  try {
+    const r = await CA.api('/api/admin/login', { password: document.getElementById('pw').value });
+    location.href = r.redirect;
+  } catch (x) { err.textContent = x.message; }
+});
+</script>
+{% endblock %}

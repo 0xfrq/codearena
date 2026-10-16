@@ -1,0 +1,62 @@
+{
+  "id": "C12",
+  "title": "The Missing Behavior",
+  "materi": [5],
+  "case": "Ekspor dokumen lintas unit kampus",
+  "topics": ["duck typing", "structural typing", "method", "akses attribute & method"],
+  "summary": "Modul ekspor kampus seharusnya menerima dokumen apa pun yang 'bisa export()'. Kartu perpustakaan hilang diam-diam dari hasil ekspor, pemeriksaan kontrak Protocol crash, dan struk kantin tidak bisa diekspor.",
+  "objectives": [
+    "O1: menjelaskan duck typing — objek dinilai dari perilakunya, bukan dari class induknya.",
+    "O2: menggunakan typing.Protocol sebagai structural typing dan memahami batasan pemeriksaan runtime-nya.",
+    "O3: membedakan method (perilaku yang dapat dipanggil) dan data attribute bernama sama."
+  ],
+  "spec": [
+    "Objek apa pun dengan method export() -> str dapat diekspor, terlepas dari hierarki class-nya.",
+    "ekspor_semua(daftar) mengembalikan list string sesuai urutan; objek tanpa export() yang dapat dipanggil ditolak dengan TypeError (tidak dilewati diam-diam).",
+    "bisa_diekspor(obj) mengembalikan True/False tanpa error untuk input apa pun.",
+    "StrukKantin(total).export() -> 'KANTIN;<total>'."
+  ],
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "Pemeriksaan nominal menolak objek duck-typed",
+      "location": "ekspor_semua: isinstance(d, LaporanBase)",
+      "concept": "duck typing",
+      "scenario": "Fungsi memeriksa class induk, bukan perilaku. KartuPerpus yang punya export() dilewati, dan objek tak valid juga dilewati tanpa error.",
+      "attack": "ekspor_semua([LaporanNilai('1','A'), KartuPerpus(42)]) -> hanya 1 hasil; ekspor_semua([object()]) -> [].",
+      "fix": "Periksa perilaku (callable export) dan lempar TypeError untuk objek yang tidak memenuhi."
+    },
+    {
+      "id": "B2",
+      "title": "Protocol tidak runtime_checkable",
+      "location": "class Exportable(Protocol) / bisa_diekspor",
+      "concept": "structural typing dengan typing.Protocol",
+      "scenario": "isinstance terhadap Protocol tanpa @runtime_checkable melempar TypeError. Selain itu, pemeriksaan runtime Protocol hanya memeriksa keberadaan attribute, bukan apakah attribute itu callable.",
+      "attack": "bisa_diekspor(KartuPerpus(1)) -> TypeError: Instance and class checks can only be used with @runtime_checkable protocols.",
+      "fix": "Tambahkan @runtime_checkable dan callable(getattr(obj, 'export', None))."
+    },
+    {
+      "id": "B3",
+      "title": "export berupa data, bukan perilaku",
+      "location": "StrukKantin.__init__: self.export = '...'",
+      "concept": "duck typing — kontrak perilaku",
+      "scenario": "StrukKantin menyimpan string pada attribute export sehingga terlihat memenuhi kontrak, tetapi tidak dapat dipanggil.",
+      "attack": "StrukKantin(15000).export() -> TypeError: 'str' object is not callable.",
+      "fix": "Definisikan def export(self) -> str."
+    }
+  ],
+  "attack_procedure": [
+    "Kumpulkan objek dari class yang tidak saling mewarisi namun memiliki export().",
+    "Uji fungsi pemeriksa kontrak dengan objek valid, tidak valid, dan 'palsu' (attribute non-callable).",
+    "Bandingkan jumlah input dan jumlah output ekspor."
+  ],
+  "rubric_notes": {
+    "attack": "B1 kuat bila attacker menunjukkan kehilangan data diam-diam (input 2, output 1).",
+    "defense": "Membuat KartuPerpus mewarisi LaporanBase bukan perbaikan root cause B1 — spesifikasi meminta duck typing."
+  },
+  "concept_map": [
+    {"topic": "duck typing", "bug": "B1", "objective": "O1"},
+    {"topic": "structural typing", "bug": "B2", "objective": "O2"},
+    {"topic": "duck typing", "bug": "B3", "objective": "O3"}
+  ]
+}

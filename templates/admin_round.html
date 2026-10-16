@@ -1,0 +1,128 @@
+{% if can_create %}
+<form class="card" data-api="/api/admin/round/create" data-refresh="round review scores" data-ok="Ronde dibuat — periksa pairing lalu mulai">
+  <div class="card-title"><h3>Buat ronde baru</h3><span class="small muted">{{ confirmed_teams }} kelompok terkonfirmasi{% if confirmed_teams < 2 %} — minimal 2 diperlukan{% endif %}</span></div>
+  <div class="field"><label>Challenge</label>
+    <select name="challenge_id">
+      {% for (cid, clabel, cmateri) in challenges %}<option value="{{ cid }}">{{ clabel }} ({{ cmateri }})</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field-row">
+    <div class="field"><label>Briefing (menit)</label><input type="number" name="briefing" value="{{ defaults.briefing / 60 }}" min="0" max="240" data-type="int"></div>
+    <div class="field"><label>Defense prep (menit)</label><input type="number" name="defense_prep" value="{{ defaults.defense_prep / 60 }}" min="0" max="240" data-type="int"></div>
+    <div class="field"><label>Attack window (menit)</label><input type="number" name="attack_window" value="{{ defaults.attack_window / 60 }}" min="0" max="240" data-type="int"></div>
+    <div class="field"><label>Defense response (menit)</label><input type="number" name="defense_response" value="{{ defaults.defense_response / 60 }}" min="0" max="240" data-type="int"></div>
+    <div class="field"><label>Verification (menit, 0 = manual)</label><input type="number" name="verification" value="{{ defaults.verification / 60 }}" min="0" max="240" data-type="int"></div>
+  </div>
+  <label class="check"><input type="checkbox" name="auto_advance" data-type="bool" checked> Server otomatis menutup Defense Prep, Attack Window, dan Defense Response ketika waktu habis</label>
+  <p class="small muted">Durasi 0 = fase tanpa batas waktu (ditutup manual). Briefing, Verification, dan Results selalu ditutup manual oleh instruktur.</p>
+  <button class="btn btn-primary" type="submit" {% if confirmed_teams < 2 %}disabled{% endif %}>Buat ronde &amp; generate pairing</button>
+</form>
+{% endif %}
+
+{% if has_round %}
+<div class="card" style="margin-top:1rem">
+  <div class="card-title">
+    <h3>Ronde {{ number }} — {{ challenge_label }}</h3>
+    <span class="row"><span class="pill">{{ state }}</span><span class="badge big tone-review">{{ phase_label }}{% if paused %} · PAUSED{% endif %}</span>{% if timed %}<span class="clock" style="font-size:1.3rem" data-admin-clock>{{ remaining }}</span>{% endif %}</span>
+  </div>
+
+  {% if state == "setup" %}
+  <div class="notice warn" style="margin-bottom:.8rem">Pairing belum dikunci dan belum terlihat oleh mahasiswa. Setiap tim harus menyerang tepat satu tim dan diserang tepat satu tim. Pairing dikunci saat ronde dimulai.</div>
+  <form data-custom="pairing" data-round="{{ round_id }}">
+    <table>
+      <thead><tr><th>Penyerang</th><th></th><th>Target</th></tr></thead>
+      <tbody>
+      {% for p in pairs %}
+        <tr><td><b>{{ p.attacker }}</b></td><td class="tone-threat">ATTACK →</td>
+          <td><select data-attacker="{{ p.attacker_id }}">{% for (tid, tname) in teams %}<option value="{{ tid }}"{% if tid.clone() == p.target_id %} selected{% endif %}>{{ tname }}</option>{% endfor %}</select></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="row" style="margin-top:.8rem">
+      <button class="btn" type="submit">Simpan pairing manual</button>
+      <button class="btn" type="button" data-api="/api/admin/round/shuffle" data-body='{"round_id":{{ round_id }}}' data-refresh="round">Acak ulang pairing</button>
+      <button class="btn btn-primary" type="button" data-api="/api/admin/round/start" data-body='{"round_id":{{ round_id }}}' data-confirm="Mulai ronde {{ number }}? Pairing dan kelompok akan dikunci." data-refresh="round teams" data-ok="Ronde dimulai — fase Briefing">▶ Mulai ronde &amp; kunci pairing</button>
+      <button class="btn btn-ghost" type="button" data-api="/api/admin/round/cancel" data-body='{"round_id":{{ round_id }}}' data-confirm="Batalkan ronde ini?" data-refresh="round">Batalkan</button>
+    </div>
+  </form>
+  {% else %}
+  <div class="grid grid-2">
+    <div>
+      <div class="section-label">Pairing resmi (dikunci)</div>
+      <table><tbody>
+      {% for p in pairs %}<tr><td><b>{{ p.attacker }}</b></td><td class="tone-threat">ATTACK →</td><td><b>{{ p.target }}</b></td><td>{% if p.locked %}🔒{% endif %}</td></tr>{% endfor %}
+      </tbody></table>
+    </div>
+    <div>
+      {% if state == "running" %}
+      <div class="section-label">Kontrol fase</div>
+      <div class="row">
+        {% if !next_label.is_empty() %}
+        <button class="btn btn-primary" type="button" data-api="/api/admin/round/advance" data-body='{"round_id":{{ round_id }},"from":"{{ phase }}"}' data-confirm="Tutup fase {{ phase_label }} dan buka {{ next_label }}?" data-refresh="round review" data-ok="Fase berganti">⏭ Buka fase: {{ next_label }}</button>
+        {% endif %}
+        {% if paused %}
+        <button class="btn btn-success" type="button" data-api="/api/admin/round/resume" data-body='{"round_id":{{ round_id }}}' data-refresh="round">▶ Lanjutkan</button>
+        {% else %}
+        <button class="btn btn-review" type="button" data-api="/api/admin/round/pause" data-body='{"round_id":{{ round_id }}}' data-refresh="round">❚❚ Pause</button>
+        {% endif %}
+      </div>
+      {% if timed %}
+      <div class="row" style="margin-top:.5rem">
+        <span class="small muted">Waktu fase:</span>
+        <button class="btn btn-sm" type="button" data-api="/api/admin/round/extend" data-body='{"round_id":{{ round_id }},"seconds":60}' data-refresh="round">+1 menit</button>
+        <button class="btn btn-sm" type="button" data-api="/api/admin/round/extend" data-body='{"round_id":{{ round_id }},"seconds":300}' data-refresh="round">+5 menit</button>
+        <button class="btn btn-sm btn-ghost" type="button" data-api="/api/admin/round/extend" data-body='{"round_id":{{ round_id }},"seconds":-60}' data-refresh="round">−1 menit</button>
+      </div>
+      {% endif %}
+      {% if phase == "RESULTS" %}
+      <div class="notice {% if open_reports > 0 || open_patches > 0 %}warn{% else %}ok{% endif %}" style="margin-top:.8rem">
+        {{ open_reports }} laporan dan {{ open_patches }} patch belum direview.
+        <div class="row" style="margin-top:.5rem">
+          <button class="btn btn-primary" type="button" data-api="/api/admin/round/finalize" data-body='{"round_id":{{ round_id }},"force":false}' data-confirm="Finalisasi ronde {{ number }}? Skor ronde akan disahkan dan tidak dapat berubah tanpa koreksi tercatat." data-refresh="round scores review" data-ok="Ronde difinalisasi">✓ Finalisasi &amp; sahkan skor</button>
+          {% if open_reports > 0 || open_patches > 0 %}
+          <button class="btn btn-danger" type="button" data-api="/api/admin/round/finalize" data-body='{"round_id":{{ round_id }},"force":true}' data-confirm="Finalisasi PAKSA? Laporan/patch yang belum direview bernilai 0." data-refresh="round scores review">Finalisasi paksa</button>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+      {% endif %}
+      {% if phase == "RESULTS" || state == "finalized" %}
+      <div class="row" style="margin-top:.8rem">
+        {% if discussion %}
+        <button class="btn" type="button" data-api="/api/admin/round/discussion" data-body='{"round_id":{{ round_id }},"open":false}' data-refresh="round">Tutup pembahasan</button>
+        {% else %}
+        <button class="btn btn-review" type="button" data-api="/api/admin/round/discussion" data-body='{"round_id":{{ round_id }},"open":true}' data-confirm="Buka pembahasan? Answer key, reference solution, dan semua laporan ronde ini akan terlihat oleh mahasiswa." data-refresh="round">Buka pembahasan</button>
+        {% endif %}
+        {% if state == "finalized" %}<span class="badge tone-success"><span class="ico">✓</span>Ronde final</span>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if !timeline.is_empty() %}
+  <div class="section-label" style="margin-top:1rem">Timeline fase</div>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Fase</th><th>Status</th><th>Mulai</th><th>Selesai</th><th>Rencana</th><th>Durasi aktual</th><th class="num">Submission</th></tr></thead>
+    <tbody>
+    {% for t in timeline %}
+      <tr><td>{{ t.label }}</td><td>{% if t.state == "completed" %}<span class="tone-success">✓ completed</span>{% else %}{% if t.state == "active" %}<span class="tone-analysis">● active</span>{% else %}<span class="muted">○ upcoming</span>{% endif %}{% endif %}</td>
+        <td class="mono small">{{ t.started }}</td><td class="mono small">{{ t.ended }}</td><td class="mono small">{{ t.planned }}</td><td class="mono small">{{ t.actual }}</td><td class="num">{{ t.submissions }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if !history.is_empty() %}
+<details class="card" style="margin-top:1rem">
+  <summary>Riwayat ronde ({{ history.len() }})</summary>
+  <table>
+    <thead><tr><th>#</th><th>Challenge</th><th>Status</th><th>Difinalisasi</th></tr></thead>
+    <tbody>{% for (n, c, st, fin) in history %}<tr><td>{{ n }}</td><td>{{ c }}</td><td>{{ st }}</td><td class="mono small">{{ fin }}</td></tr>{% endfor %}</tbody>
+  </table>
+</details>
+{% endif %}

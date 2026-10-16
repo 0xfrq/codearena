@@ -1,0 +1,64 @@
+{
+  "id": "C07",
+  "title": "The Broken Family Tree",
+  "materi": [4],
+  "case": "Kartu identitas civitas akademika",
+  "topics": ["inheritance", "base class", "derived class", "akses attribute & method"],
+  "summary": "Semua kartu identitas kampus dibuat dari hierarki class Civitas. Kartu dosen gagal dicetak karena attribute hilang, semua kartu berawalan 'CIV', dan data mahasiswa tertukar.",
+  "objectives": [
+    "O1: menjelaskan hubungan base class dan derived class serta pewarisan attribute/method.",
+    "O2: memanggil constructor parent dengan super().__init__ secara benar.",
+    "O3: menjelaskan lookup attribute melalui self vs melalui nama class pada konteks inheritance."
+  ],
+  "spec": [
+    "Semua civitas memiliki nama, nomor (> 0), dan aktif=True setelah dibuat.",
+    "kartu() mengembalikan '<PREFIX>-<nomor 4 digit>' dengan PREFIX milik class konkret (CIV/DSN/MHS/TDK).",
+    "Dosen(nama, nomor, nidn), Mahasiswa(nama, nomor, prodi), Tendik(nama, nomor, unit).",
+    "Validasi nomor di base class juga berlaku untuk semua turunan.",
+    "profil() mengembalikan '<kartu> <nama> (aktif|nonaktif)'."
+  ],
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "Constructor dosen tidak memanggil parent",
+      "location": "Dosen.__init__",
+      "concept": "derived class wajib menginisialisasi bagian base class",
+      "scenario": "Dosen.__init__ menimpa constructor parent tanpa super().__init__, sehingga nama, nomor, aktif tidak pernah dibuat dan validasi nomor tidak berjalan.",
+      "attack": "Dosen('Bu Rina', 12, '001').profil() -> AttributeError: 'Dosen' object has no attribute 'aktif'.",
+      "fix": "super().__init__(nama, nomor) di awal constructor."
+    },
+    {
+      "id": "B2",
+      "title": "Prefix kartu selalu milik base class",
+      "location": "Civitas.kartu",
+      "concept": "lookup attribute pada inheritance (self.prefix vs Civitas.prefix)",
+      "scenario": "Method base membaca Civitas.prefix secara eksplisit sehingga class attribute turunan diabaikan.",
+      "attack": "Tendik('Joko', 3, 'BAAK').kartu() -> 'CIV-0003'.",
+      "fix": "Gunakan self.prefix (atau type(self).prefix)."
+    },
+    {
+      "id": "B3",
+      "title": "Argumen constructor parent tertukar",
+      "location": "Mahasiswa.__init__",
+      "concept": "pemanggilan constructor base class",
+      "scenario": "super().__init__(nomor, nama) menukar posisi argumen sehingga nama berisi angka dan nomor berisi string (validasi bahkan bisa crash).",
+      "attack": "Mahasiswa('Ani', 5, 'IF') -> TypeError (perbandingan str <= int) atau data tertukar.",
+      "fix": "super().__init__(nama, nomor)."
+    }
+  ],
+  "attack_procedure": [
+    "Buat object dari setiap class turunan dan panggil seluruh method base.",
+    "Periksa vars(obj) untuk memastikan attribute dari base class terbentuk.",
+    "Bandingkan output kartu() setiap jenis civitas dengan spesifikasi prefix."
+  ],
+  "rubric_notes": {
+    "attack": "Root cause B2 harus menjelaskan mengapa Civitas.prefix tidak polimorfik.",
+    "defense": "Patch B1 tidak boleh menyalin isi constructor parent ke Dosen (duplikasi) — gunakan super()."
+  },
+  "concept_map": [
+    {"topic": "derived class", "bug": "B1", "objective": "O2"},
+    {"topic": "base class", "bug": "B2", "objective": "O3"},
+    {"topic": "inheritance", "bug": "B2", "objective": "O1"},
+    {"topic": "derived class", "bug": "B3", "objective": "O2"}
+  ]
+}

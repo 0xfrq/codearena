@@ -1,0 +1,23 @@
+<div class="grid grid-2">
+  <div class="card">
+    <div id="admin-chat" data-me="instruktur" data-instructor="1" data-rooms="{% for (key, _label) in rooms %}{{ key }}{% if !loop.last %},{% endif %}{% endfor %}" data-labels="{% for (_key, label) in rooms %}{{ label }}{% if !loop.last %}|{% endif %}{% endfor %}"></div>
+  </div>
+  <div class="card">
+    <h3>Moderasi</h3>
+    <div class="row">
+      {% if lobby_locked %}
+      <button class="btn btn-success" type="button" data-api="/api/admin/chat/lobby-lock" data-body='{"locked":false}' data-refresh="chat">Buka lobby</button>
+      <span class="badge tone-fail"><span class="ico">✕</span>lobby ditutup</span>
+      {% else %}
+      <button class="btn" type="button" data-api="/api/admin/chat/lobby-lock" data-body='{"locked":true}' data-refresh="chat">Tutup lobby sementara</button>
+      <span class="badge tone-success"><span class="ico">✓</span>lobby terbuka</span>
+      {% endif %}
+    </div>
+    <form class="inline-form" style="margin-top:.8rem" data-api="/api/admin/chat/mute" data-refresh="chat" data-ok="Pengaturan mute disimpan">
+      <select name="nim">{% for (nim, muted) in participants %}<option value="{{ nim }}">{{ nim }} {{ muted }}</option>{% endfor %}</select>
+      <input type="number" name="minutes" value="10" min="0" max="240" data-type="int" style="width:5rem"> menit
+      <button class="btn" type="submit">Mute (0 = unmute)</button>
+    </form>
+    <p class="small muted" style="margin-top:.6rem">Hapus pesan dengan tombol ✕ di samping pesan. Pesan yang dihapus tetap tersimpan untuk audit dan ditampilkan sebagai "[pesan dihapus oleh moderator]" kepada mahasiswa. Rate limit: 5 pesan / 10 detik per mahasiswa, maks 500 karakter.</p>
+  </div>
+</div>

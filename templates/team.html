@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}{{ team_name }} — Code Arena{% endblock %}
+{% block nav %}<a href="/arena" target="_blank" rel="noopener">Live Arena ↗</a><a href="/wait">Waiting room</a><button class="linklike" id="logout-btn" type="button">Keluar ({{ nim }})</button>{% endblock %}
+{% block content %}
+<main class="wrap">
+  <section class="card team-head">
+    <div>
+      <div class="section-label">Tim Anda</div>
+      <h1 id="t-name">{{ team_name }}</h1>
+      <div id="t-members">{% for m in members %}<span class="member" data-nim="{{ m.nim }}"><span class="dot{% if m.online %} on{% endif %}"></span>{{ m.nim }}{% if m.nim == nim %} <span class="state">(Anda)</span>{% endif %}</span>{% endfor %}</div>
+    </div>
+    <div>
+      <div class="section-label">Ronde &amp; fase</div>
+      <div class="row"><span id="t-round">{% if has_round %}Ronde {{ round_number }}{% else %}Belum ada ronde{% endif %}</span><span id="t-phase" class="badge tone-idle"><span class="ico">○</span><span>-</span></span></div>
+      <div class="clock" id="t-clock" aria-live="off">--:--</div>
+      <div class="small muted" id="t-clock-note"></div>
+    </div>
+    <div class="score-mini">
+      <div><div class="v" id="t-round-score">0</div><div class="k">Skor ronde</div></div>
+      <div><div class="v" id="t-total">0</div><div class="k">Kumulatif</div></div>
+      <div><div class="v" id="t-rank">-</div><div class="k">Peringkat</div></div>
+    </div>
+  </section>
+
+  <section class="status-strip">
+    <div class="status-box">
+      <div class="row between"><div class="section-label">Attack status — pekerjaan sebagai penyerang</div></div>
+      <span id="t-attack" class="badge big tone-idle"><span class="ico">○</span><span>Belum dimulai</span></span>
+      <div class="reason" id="t-attack-reason"></div>
+      <div class="when" id="t-attack-at"></div>
+      <div class="matchup" style="margin-top:.5rem">Menyerang → <b id="t-target">{% if target_name.is_empty() %}-{% else %}{{ target_name }}{% endif %}</b> <span class="muted small" id="t-out-summary"></span></div>
+    </div>
+    <div class="status-box">
+      <div class="section-label">Defense status — pekerjaan sebagai defender</div>
+      <span id="t-defense" class="badge big tone-idle"><span class="ico">○</span><span>Belum dimulai</span></span>
+      <div class="reason" id="t-defense-reason"></div>
+      <div class="when" id="t-defense-at"></div>
+      <div class="matchup" style="margin-top:.5rem">Diserang oleh ← <b id="t-attacker">{% if attacker_name.is_empty() %}-{% else %}{{ attacker_name }}{% endif %}</b> <span class="muted small">· temuan terbuka <b id="t-open">0</b> · patch <b id="t-patch">-</b></span></div>
+    </div>
+  </section>
+
+  <nav class="tabs" data-tabs="team">
+    <button type="button" data-tab="overview" class="active">Ringkasan</button>
+    <button type="button" data-tab="challenge">Challenge</button>
+    <button type="button" data-tab="prep">Defense Prep</button>
+    <button type="button" data-tab="attack">Attack <span class="count pill" id="cnt-out">0</span></button>
+    <button type="button" data-tab="defense">Defense <span class="count pill" id="cnt-in">0</span></button>
+    <button type="button" data-tab="chat">Chat <span class="count pill hidden" id="cnt-chat">0</span></button>
+  </nav>
+
+  <section class="tab-panel active" data-panel="overview">
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="section-label">Fase saat ini</div>
+        <h2 id="o-phase">-</h2>
+        <p id="o-phase-desc" class="muted"></p>
+        <div id="o-guide" class="notice"></div>
+        <div class="section-label" style="margin-top:1rem">Timeline ronde</div>
+        <div id="o-timeline"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><h3>Leaderboard</h3><a class="small" href="/arena" target="_blank" rel="noopener">Live Arena ↗</a></div>
+        <div id="o-leaderboard" class="muted">Memuat…</div>
+        <p class="small muted" style="margin-top:.6rem">Skor resmi dihitung server dari hasil review instruktur. Attack: maks 2 temuan valid × 25. Defense: patch terbaik maks 50. Rebuttal: maks 10.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab-panel" data-panel="challenge">
+    <div id="frag-challenge" data-frag="challenge">{{ frag_challenge|safe }}</div>
+  </section>
+
+  <section class="tab-panel" data-panel="prep">
+    {% if has_round %}
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title"><h3>Status persiapan</h3></div>
+        <div id="frag-prep" data-frag="prep">{{ frag_prep|safe }}</div>
+      </div>
+      <div class="card">
+        <h3>Aturan snapshot</h3>
+        <p class="small muted">Selama <b>Defense Preparation</b> tim boleh memperbaiki starter code. Saat <b>Attack Window</b> dibuka, server mengunci versi <b>terakhir yang disimpan</b> sebagai <b>locked defense snapshot v1</b> (immutable, dicatat dengan SHA-256). Penyerang menguji snapshot itu; perubahan setelahnya masuk ke patch draft v2, v3, … dan tidak mengubah snapshot.</p>
+      </div>
+    </div>
+    <form class="card" id="prep-form" data-api="/api/team/prep/save" data-phases="DEFENSE_PREP" data-ok="Draft pertahanan disimpan" style="margin-top:1rem">
+      <div class="card-title"><h3>Implementasi pertahanan (draft)</h3><span class="phase-hint small muted"></span></div>
+      <div class="field"><textarea class="code-editor" name="code" spellcheck="false">{{ prep_code }}</textarea></div>
+      <div class="field"><label>Catatan tim (opsional)</label><textarea name="notes" rows="2" spellcheck="false">{{ prep_notes }}</textarea></div>
+      <div class="row">
+        <button class="btn btn-primary" type="submit">Simpan draft pertahanan</button>
+        <button class="btn" type="button" data-api="/api/team/prep/ready" data-body="{}" data-confirm="Tandai implementasi pertahanan siap? Anda masih bisa menyimpan ulang sampai fase berakhir." data-ok="Ditandai siap">Tandai siap</button>
+      </div>
+    </form>
+    {% else %}
+    <p class="muted">Belum ada ronde yang dimulai.</p>
+    {% endif %}
+  </section>
+
+  <section class="tab-panel" data-panel="attack">
+    {% if has_round %}
+    <div class="card" data-phases="ATTACK_WINDOW">
+      <div class="row between">
+        <div><b>Laporkan aktivitas tim secara eksplisit</b> <span class="small muted">— status hanya berubah karena tindakan nyata, bukan karena halaman dibuka.</span></div>
+        <div class="row">
+          <button class="btn btn-sm" type="button" data-api="/api/team/status" data-body='{"side":"attack","status":"INSPECTING_TARGET"}' data-ok="Status: menginspeksi target">◎ Mulai inspeksi target</button>
+          <button class="btn btn-sm" type="button" data-api="/api/team/status" data-body='{"side":"attack","status":"PREPARING_REPORT"}' data-ok="Status: menyusun laporan">◎ Menyusun laporan</button>
+        </div>
+      </div>
+      <span class="phase-hint small muted"></span>
+    </div>
+    <div class="grid grid-2" style="margin-top:1rem">
+      <div class="card">
+        <div class="card-title"><h3>Locked snapshot target</h3></div>
+        <div id="frag-snapshots" data-frag="snapshots">{{ frag_snapshots|safe }}</div>
+      </div>
+      <form class="card" id="report-form" autocomplete="off">
+        <div class="card-title"><h3 id="report-form-title">Attack report baru</h3><button class="btn btn-sm btn-ghost" type="button" id="report-new">+ Laporan baru</button></div>
+        <input type="hidden" name="id" value="">
+        <input type="hidden" name="mode" value="draft">
+        <div class="field"><label>Judul temuan *</label><input type="text" name="title" maxlength="200" placeholder="mis. Saldo dapat ditimpa langsung melalui property"></div>
+        <div class="field-row">
+          <div class="field"><label>Lokasi kode *</label><input type="text" name="code_location" maxlength="300" placeholder="Tabungan.saldo (setter), baris 24"></div>
+          <div class="field"><label>Konsep PBO *</label><input type="text" name="concept" maxlength="200" placeholder="encapsulation / property"></div>
+        </div>
+        <div class="field"><label>Input / rangkaian pemicu *</label><textarea name="trigger_input" rows="4" spellcheck="false" placeholder="t = Tabungan('A', 1000)&#10;t.saldo = 999_999_999"></textarea></div>
+        <div class="field-row">
+          <div class="field"><label>Expected behavior *</label><textarea name="expected" rows="3"></textarea></div>
+          <div class="field"><label>Actual behavior *</label><textarea name="actual" rows="3"></textarea></div>
+        </div>
+        <div class="field"><label>Instruksi reproduksi *</label><textarea name="repro_steps" rows="3"></textarea></div>
+        <div class="field"><label>Root cause *</label><textarea name="root_cause" rows="3"></textarea></div>
+        <div class="field"><label>Bukti / output / test case (unittest)</label><textarea name="evidence" rows="6" spellcheck="false" placeholder="def test_saldo_read_only(self): ..."></textarea></div>
+        <div class="field hidden" id="revision-reason-field"><label>Alasan revisi *</label><input type="text" name="revision_reason" maxlength="1000"></div>
+        <div class="row">
+          <button class="btn" type="button" id="report-save">Simpan draft</button>
+          <button class="btn btn-danger" type="button" id="report-submit">Submit laporan →</button>
+          <span class="phase-hint small muted"></span>
+        </div>
+        <p class="small muted">Setelah disubmit laporan terkunci dan tercatat. Validitas hanya ditentukan instruktur — tidak ada poin otomatis karena mengirim laporan. Maks 6 laporan resmi; hanya 2 temuan valid terbaik yang dihitung.</p>
+      </form>
+    </div>
+    <div class="card" style="margin-top:1rem">
+      <div class="card-title"><h3>Laporan tim &amp; status review</h3></div>
+      <div id="frag-reports_out" data-frag="reports_out">{{ frag_reports_out|safe }}</div>
+    </div>
+    {% else %}
+    <p class="muted">Belum ada ronde yang dimulai.</p>
+    {% endif %}
+  </section>
+
+  <section class="tab-panel" data-panel="defense">
+    {% if has_round %}
+    <div class="card" data-phases="ATTACK_WINDOW DEFENSE_RESPONSE">
+      <div class="row between">
+        <div><b>Aktivitas defense</b> <span class="small muted">— pilih secara eksplisit apa yang sedang dikerjakan tim.</span></div>
+        <div class="row">
+          <button class="btn btn-sm" type="button" data-api="/api/team/status" data-body='{"side":"defense","status":"ANALYZING_BUG"}' data-ok="Status: menganalisis bug">◆ Menganalisis bug</button>
+          <button class="btn btn-sm" type="button" data-api="/api/team/status" data-body='{"side":"defense","status":"FIXING_BUG"}' data-ok="Status: memperbaiki bug">◎ Memperbaiki bug</button>
+          <button class="btn btn-sm" type="button" data-api="/api/team/status" data-body='{"side":"defense","status":"WRITING_REGRESSION_TEST"}' data-ok="Status: menulis regression test">◆ Menulis regression test</button>
+        </div>
+      </div>
+      <span class="phase-hint small muted"></span>
+    </div>
+    <div class="card" style="margin-top:1rem">
+      <div class="card-title"><h3>Incoming reports</h3><span class="small muted">Setiap laporan memiliki status dan riwayatnya sendiri.</span></div>
+      <div id="frag-reports_in" data-frag="reports_in">{{ frag_reports_in|safe }}</div>
+    </div>
+    <form class="card" id="patch-form" data-api="/api/team/patch/save" data-phases="ATTACK_WINDOW DEFENSE_RESPONSE" data-ok="Patch draft disimpan" style="margin-top:1rem" autocomplete="off">
+      <div class="card-title"><h3>Patch editor</h3><span class="small muted" id="patch-label">{{ patch_label }}</span></div>
+      <p class="small muted">Patch draft tidak mengubah locked snapshot yang sedang diuji penyerang. Versi patch kumulatif: v2, v3, … Kode tidak dieksekusi oleh server — instruktur meninjau patch &amp; regression test sesuai rubric.</p>
+      <div class="field"><label>Root cause analysis *</label><textarea name="root_cause" rows="3">{{ patch_root_cause }}</textarea></div>
+      <div class="field"><label>Kode patch (versi lengkap modul) *</label><textarea class="code-editor" name="code" spellcheck="false">{{ patch_code }}</textarea></div>
+      <div class="field"><label>Regression tests (unittest, minimal satu <span class="mono">def test_…</span>) *</label><textarea class="code-editor" name="regression_tests" spellcheck="false" style="min-height:14rem">{{ patch_tests }}</textarea></div>
+      <div class="field"><label>Penjelasan teknis (perilaku normal &amp; edge case)</label><textarea name="explanation" rows="3">{{ patch_explanation }}</textarea></div>
+      <div class="field"><label>Laporan yang ditangani patch ini</label><div id="frag-addressed" data-frag="addressed">{{ frag_addressed|safe }}</div></div>
+      <div class="row">
+        <button class="btn btn-primary" type="submit">Simpan patch draft</button>
+        <button class="btn btn-review" type="button" id="patch-submit">Submit patch untuk review →</button>
+        <span class="phase-hint small muted"></span>
+      </div>
+    </form>
+    <div class="card" style="margin-top:1rem">
+      <div class="card-title"><h3>Riwayat patch &amp; review feedback</h3></div>
+      <div id="frag-patches" data-frag="patches">{{ frag_patches|safe }}</div>
+    </div>
+    {% else %}
+    <p class="muted">Belum ada ronde yang dimulai.</p>
+    {% endif %}
+  </section>
+
+  <section class="tab-panel" data-panel="chat">
+    <div class="card"><div id="chat" data-me="{{ nim }}" data-rooms="team:{{ team_id }},lobby,broadcast"></div></div>
+  </section>
+</main>
+
+<dialog id="dlg-defense">
+  <form id="dlg-defense-form" method="dialog">
+    <div class="dlg-head"><h3 id="dlg-defense-title">Analisis laporan</h3><button class="btn btn-sm btn-ghost" value="cancel" type="submit">✕</button></div>
+    <div class="dlg-body">
+      <input type="hidden" name="report_id">
+      <input type="hidden" name="kind">
+      <div class="field" id="dlg-state-field"><label>Progress laporan ini</label>
+        <select name="state">
+          <option value="analyzing">Dianalisis</option>
+          <option value="fixing">Sedang diperbaiki</option>
+          <option value="testing">Menulis regression test</option>
+        </select>
+      </div>
+      <div class="field"><label id="dlg-text-label">Catatan analisis root cause</label><textarea name="text" rows="8"></textarea></div>
+      <p class="small muted" id="dlg-note"></p>
+    </div>
+    <div class="dlg-foot"><button class="btn" value="cancel" type="submit">Batal</button><button class="btn btn-primary" type="button" id="dlg-defense-save">Simpan</button></div>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}
+<script type="application/json" id="boot">{{ boot_json|safe }}</script>
+<script src="/static/chat.js"></script>
+<script src="/static/team.js"></script>
+{% endblock %}

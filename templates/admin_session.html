@@ -1,0 +1,48 @@
+<div class="grid grid-2">
+  <div class="card">
+    <h3>Sesi aktif</h3>
+    <dl class="kv">
+      <dt>ID sesi</dt><dd class="mono">#{{ id }}</dd>
+      <dt>Nama</dt><dd>{{ name }}</dd>
+      <dt>Status</dt><dd>{{ status }}</dd>
+      <dt>Kelompok</dt><dd>{% if teams_locked %}<span class="badge tone-success"><span class="ico">✓</span>dikunci</span>{% else %}<span class="badge tone-idle"><span class="ico">○</span>belum dikunci</span>{% endif %}</dd>
+      <dt>Dibuat</dt><dd>{{ created }}</dd>
+      <dt>Password instruktur</dt><dd class="small">{% if password_from_env %}dari CODEARENA_ADMIN_PASSWORD{% else %}tersimpan (hash) di database — lihat data/admin-password.txt{% endif %}</dd>
+    </dl>
+    <form class="inline-form" style="margin-top:.8rem" data-api="/api/admin/session/rename" data-ok="Nama sesi diubah" data-refresh="session">
+      <input type="text" name="name" value="{{ name }}" maxlength="80" style="flex:1">
+      <button class="btn" type="submit">Ubah nama sesi</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>Ekspor hasil sesi</h3>
+    <div class="row">
+      <a class="btn" href="/admin/export/scores.csv">⬇ Leaderboard (CSV)</a>
+      <a class="btn" href="/admin/export/session.json">⬇ Data lengkap sesi (JSON)</a>
+    </div>
+    <p class="small muted" style="margin-top:.4rem">JSON memuat kelompok, pairing, fase, snapshot (hash), seluruh laporan, patch, skor final, koreksi, audit log, dan chat.</p>
+    <hr>
+    <h3>Reset sesi</h3>
+    <p class="small muted">Mengarsipkan sesi ini (semua data tetap tersimpan dan dapat diekspor) lalu membuka sesi baru yang kosong. Semua mahasiswa harus join ulang. Ronde yang sedang berjalan ikut diarsipkan tanpa finalisasi.</p>
+    <form data-api="/api/admin/session/reset" data-confirm="Reset sesi? Sesi saat ini akan diarsipkan dan semua mahasiswa keluar." data-reload="1">
+      <div class="field-row">
+        <div class="field"><label>Nama sesi baru</label><input type="text" name="name" placeholder="{{ name }}" maxlength="80"></div>
+        <div class="field"><label>Ketik RESET untuk konfirmasi</label><input type="text" name="confirm" autocomplete="off" required></div>
+      </div>
+      <button class="btn btn-danger" type="submit">Arsipkan &amp; reset sesi</button>
+    </form>
+  </div>
+</div>
+{% if !archived.is_empty() %}
+<div class="card" style="margin-top:1rem">
+  <h3>Sesi terarsip</h3>
+  <table>
+    <thead><tr><th>ID</th><th>Nama</th><th>Diarsipkan</th><th>Ekspor</th></tr></thead>
+    <tbody>
+    {% for (aid, aname, at) in archived %}
+      <tr><td class="mono">#{{ aid }}</td><td>{{ aname }}</td><td>{{ at }}</td><td><a href="/admin/export/scores.csv?session={{ aid }}">CSV</a> · <a href="/admin/export/session.json?session={{ aid }}">JSON</a></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}

@@ -1,0 +1,21 @@
+{% if reports.is_empty() %}<p class="muted">Belum ada laporan. Laporan dapat dibuat selama Attack Window.</p>{% endif %}
+{% for r in reports %}
+<article class="report" data-filter="{{ r.filter }}" data-status="{{ r.status }}">
+  <div class="r-head">
+    <span class="r-title">#{{ r.id }} {% if r.title.is_empty() %}<span class="muted">(tanpa judul)</span>{% else %}{{ r.title }}{% endif %}</span>
+    <span class="badge tone-{{ r.tone }}"><span class="ico">{{ r.icon }}</span>{{ r.status_label }}</span>
+  </div>
+  <div class="small muted">→ {{ r.target_name }} · dibuat {{ r.created_by }} {{ r.created_at }}{% if !r.is_draft %} · disubmit {{ r.submitted_at }} oleh {{ r.submitted_by }} · revisi {{ r.revision }}{% endif %}</div>
+  {% include "_review_box.html" %}
+  {% if !r.rebuttal.is_empty() %}<div class="small" style="margin-top:.4rem"><b>Rebuttal defender</b> ({{ r.rebuttal_at }}): <span style="white-space:pre-wrap">{{ r.rebuttal }}</span></div>{% endif %}
+  <details style="margin-top:.4rem"><summary>Isi laporan</summary>{% include "_report_body.html" %}</details>
+  <div class="row" style="margin-top:.4rem">
+    {% if r.is_draft && can_edit %}
+    <button class="btn btn-sm" type="button" data-edit-report="{{ r.json }}">Edit draft</button>
+    <button class="btn btn-sm btn-ghost" type="button" data-api="/api/team/report/delete" data-body='{"id":{{ r.id }}}' data-confirm="Hapus draft laporan #{{ r.id }}?" data-ok="Draft dihapus">Hapus draft</button>
+    {% endif %}
+    {% if r.is_draft && !can_edit %}<span class="small muted">Draft tidak dapat lagi disubmit (attack window ditutup).</span>{% endif %}
+    {% if r.needs_revision %}<button class="btn btn-sm btn-review" type="button" data-revise-report="{{ r.json }}">Revisi laporan</button>{% endif %}
+  </div>
+</article>
+{% endfor %}

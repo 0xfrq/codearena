@@ -1,0 +1,12 @@
+{% if r.reviewed %}
+<div class="notice {% if r.status == "valid" %}ok{% else %}{% if r.status == "needs_revision" %}warn{% else %}danger{% endif %}{% endif %}" style="margin-top:.5rem">
+  <b>Hasil review</b> <span class="small muted">({{ r.reviewed_at }})</span>:
+  <span class="badge tone-{{ r.tone }}"><span class="ico">{{ r.icon }}</span>{{ r.status_label }}</span>
+  {% if r.status == "valid" %}<span class="mono"> rubric {{ r.score_repro }}/10 + {{ r.score_rootcause }}/10 + {{ r.score_evidence }}/5 = <b>{{ r.points }}</b></span>{% endif %}
+  {% if !r.duplicate_of.is_empty() %}<span> · duplikat dari {{ r.duplicate_of }}</span>{% endif %}
+  {% if r.rebuttal_bonus > 0 %}<span> · bonus rebuttal defender +{{ r.rebuttal_bonus }}</span>{% endif %}
+  {% if !r.review_note.is_empty() %}<div class="small" style="margin-top:.3rem;white-space:pre-wrap">{{ r.review_note }}</div>{% endif %}
+</div>
+{% else %}
+{% if r.awaiting_review %}<div class="small muted" style="margin-top:.4rem">◷ Menunggu validasi instruktur — belum ada klaim valid/invalid.</div>{% endif %}
+{% endif %}

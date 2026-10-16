@@ -1,0 +1,79 @@
+{% match challenge %}
+{% when None %}
+<p class="muted">Challenge ditampilkan setelah ronde dimulai.</p>
+{% when Some with (c) %}
+<div class="grid grid-2">
+  <div class="card">
+    <div class="section-label">{{ c.materi }}{% if c.capstone %} · Integrated capstone{% endif %}</div>
+    <h2>{{ c.label }}</h2>
+    <p class="muted">{{ c.case }}</p>
+    <p>{{ c.summary }}</p>
+    <div class="chips" style="margin:.5rem 0">{% for t in c.topics %}<span class="pill">{{ t }}</span>{% endfor %}</div>
+    <h4>Tujuan pembelajaran</h4>
+    <ul>{% for o in c.objectives %}<li>{{ o }}</li>{% endfor %}</ul>
+    <h4>Spesifikasi perilaku</h4>
+    <ol>{% for s in c.spec %}<li>{{ s }}</li>{% endfor %}</ol>
+  </div>
+  <div class="card">
+    <h4>Prosedur attack</h4>
+    <ol>{% for s in c.attack_procedure %}<li>{{ s }}</li>{% endfor %}</ol>
+    <h4>Rubric penilaian</h4>
+    <table>
+      <thead><tr><th>Komponen</th><th class="num">Poin</th></tr></thead>
+      <tbody>
+        <tr><td>Attack — bug dapat direproduksi</td><td class="num">10</td></tr>
+        <tr><td>Attack — root cause &amp; konsep PBO akurat</td><td class="num">10</td></tr>
+        <tr><td>Attack — bukti &amp; test case jelas</td><td class="num">5</td></tr>
+        <tr><td colspan="2" class="small muted">Maks 2 temuan valid dihitung per ronde (50). Duplikat = 0.</td></tr>
+        <tr><td>Defense — patch memperbaiki root cause</td><td class="num">20</td></tr>
+        <tr><td>Defense — regression test</td><td class="num">15</td></tr>
+        <tr><td>Defense — perilaku normal &amp; edge case</td><td class="num">10</td></tr>
+        <tr><td>Defense — penjelasan teknis</td><td class="num">5</td></tr>
+        <tr><td>Bonus rebuttal (laporan terbukti tidak valid)</td><td class="num">≤ 10</td></tr>
+      </tbody>
+    </table>
+    <p class="small" style="margin-top:.6rem"><b>Catatan attack:</b> {{ c.rubric_attack }}<br><b>Catatan defense:</b> {{ c.rubric_defense }}</p>
+  </div>
+</div>
+<div class="card" style="margin-top:1rem">
+  <div class="card-title"><h3>Starter code</h3><span class="small muted">Titik awal setiap tim pada Defense Preparation</span></div>
+  <pre class="code" data-ln>{{ c.starter_code }}</pre>
+</div>
+{% if c.answer_key %}
+<div class="card" style="margin-top:1rem;border-color:var(--review)">
+  <div class="card-title"><h3>Pembahasan / answer key</h3>{% if discussion %}<span class="badge tone-review"><span class="ico">◷</span>Pembahasan dibuka instruktur</span>{% endif %}</div>
+  <table>
+    <thead><tr><th>Bug</th><th>Lokasi</th><th>Konsep</th><th>Skenario &amp; serangan</th><th>Perbaikan</th></tr></thead>
+    <tbody>
+    {% for b in c.bugs %}
+      <tr>
+        <td><b>{{ b.id }}</b><br>{{ b.title }}</td>
+        <td class="mono small">{{ b.location }}</td>
+        <td>{{ b.concept }}</td>
+        <td class="small">{{ b.scenario }}<br><span class="mono">{{ b.attack }}</span></td>
+        <td class="small">{{ b.fix }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <h4 style="margin-top:1rem">Peta konsep → bug → tujuan</h4>
+  <div class="chips">{% for (topic, bug, obj) in c.concept_map %}<span class="pill">{{ topic }} → {{ bug }} → {{ obj }}</span>{% endfor %}</div>
+  <div class="grid grid-2" style="margin-top:1rem">
+    <div><div class="section-label">Reference solution</div><pre class="code" data-ln>{{ c.reference_code }}</pre></div>
+    <div><div class="section-label">Regression tests resmi (unittest)</div><pre class="code" data-ln>{{ c.regression_tests }}</pre></div>
+  </div>
+</div>
+{% endif %}
+{% if discussion && !all_reports.is_empty() %}
+<div class="card" style="margin-top:1rem">
+  <div class="card-title"><h3>Semua laporan ronde {{ round_number }} (pembahasan)</h3></div>
+  {% for r in all_reports %}
+  <article class="report">
+    <div class="r-head"><span class="r-title">#{{ r.id }} {{ r.attacker_name }} → {{ r.target_name }}: {{ r.title }}</span><span class="badge tone-{{ r.tone }}"><span class="ico">{{ r.icon }}</span>{{ r.status_label }}</span></div>
+    {% include "_review_box.html" %}
+    <details><summary>Isi laporan</summary>{% include "_report_body.html" %}</details>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+{% endmatch %}

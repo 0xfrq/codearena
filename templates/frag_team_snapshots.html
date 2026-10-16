@@ -1,0 +1,16 @@
+{% match target %}
+{% when Some with (t) %}
+<div class="small" style="margin-bottom:.5rem">
+  Target resmi: <b>{{ t.team_name }}</b> · snapshot v{{ t.version }} dikunci {{ t.locked_at }}<br>
+  <span class="sha">sha256 {{ t.sha }}</span> <span class="small muted">({{ t.source }})</span>
+</div>
+<pre class="code" data-ln>{{ t.code }}</pre>
+<p class="small muted" style="margin-top:.5rem">Serangan dinilai terhadap snapshot ini, walaupun target sudah memperbaiki kodenya di patch draft. Uji kode ini secara lokal (mis. simpan sebagai <span class="mono">solution.py</span>) lalu laporkan temuan.</p>
+{% when None %}
+<p class="muted">Snapshot target tersedia ketika <b>Attack Window</b> dibuka (fase saat ini: {{ phase }}). Penyerang hanya dapat melihat locked snapshot milik target resminya.</p>
+{% endmatch %}
+{% match mine %}
+{% when Some with (m) %}
+<p class="small muted" style="margin-top:.6rem">Snapshot tim Anda: v{{ m.version }} · <span class="sha">{{ m.sha_short }}</span> — sedang diuji oleh penyerang Anda.</p>
+{% when None %}
+{% endmatch %}

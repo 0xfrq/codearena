@@ -1,0 +1,4 @@
+{% if items.is_empty() %}<p class="small muted">Belum ada laporan masuk. Patch tetap boleh dibuat untuk memperbaiki bug yang ditemukan sendiri.</p>{% endif %}
+{% for (id, label, checked) in items %}
+<label class="check"><input type="checkbox" name="addressed" value="{{ id }}" data-type="intlist"{% if checked.clone() %} checked{% endif %}> {{ label }}</label>
+{% endfor %}

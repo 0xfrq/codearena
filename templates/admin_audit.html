@@ -1,0 +1,11 @@
+<div class="card table-scroll">
+  <table>
+    <thead><tr><th>Waktu</th><th>Aktor</th><th>Aksi</th><th>Entitas</th><th>Detail</th></tr></thead>
+    <tbody>
+    {% for (at, actor, action, entity, detail) in rows %}
+      <tr><td class="mono small nowrap">{{ at }}</td><td class="small">{{ actor }}</td><td>{{ action }}</td><td class="small mono">{{ entity }}</td><td class="small mono" style="max-width:640px;word-break:break-all">{{ detail }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if rows.is_empty() %}<p class="muted">Belum ada aktivitas tercatat.</p>{% endif %}
+</div>

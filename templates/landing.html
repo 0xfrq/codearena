@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Code Arena — PBO Attack &amp; Defense{% endblock %}
+{% block nav %}<a href="/arena">Live Arena</a><a href="/admin">Instruktur</a>{% endblock %}
+{% block content %}
+<main class="hero">
+  <section>
+    <div class="section-label">Recap Praktikum Pemrograman Berorientasi Objek · Python</div>
+    <h1>CODE ARENA</h1>
+    <div class="tagline">find the flaw. prove the bug. defend your code.</div>
+    <p class="muted">Kompetisi attack &amp; defense antar kelompok. Setiap ronde semua tim menyerang implementasi satu tim lawan dan sekaligus mempertahankan implementasinya sendiri — semuanya tentang konsep PBO: class, encapsulation, decorator, inheritance, hingga duck typing.</p>
+    <div class="flow">
+      <div><b>01</b><span><strong>Defense Preparation</strong> — pelajari starter code, perkuat implementasi tim. Snapshot dikunci saat attack dimulai.</span></div>
+      <div><b>02</b><span><strong>Attack Window</strong> — uji snapshot target, buktikan bug dengan input pemicu dan test case.</span></div>
+      <div><b>03</b><span><strong>Defense Response</strong> — analisis root cause, tulis patch dan regression test.</span></div>
+      <div><b>04</b><span><strong>Verification</strong> — instruktur memvalidasi laporan dan patch sesuai rubric.</span></div>
+    </div>
+  </section>
+  <section class="card join-card">
+    <h2>Join sesi</h2>
+    {% if !student.is_empty() %}
+    <div class="notice ok" style="margin-bottom:1rem">
+      Anda terhubung sebagai <span class="mono">{{ student }}</span>.
+      <div style="margin-top:.5rem">
+        {% if has_team %}<a class="btn btn-primary" href="/team">Buka dashboard tim</a>{% else %}<a class="btn btn-primary" href="/wait">Masuk waiting room</a>{% endif %}
+        <button class="btn btn-ghost" id="logout-btn" type="button">Keluar</button>
+      </div>
+    </div>
+    {% endif %}
+    {% if instructor %}
+    <div class="notice" style="margin-bottom:1rem">Mode instruktur aktif. <a href="/admin">Buka dashboard instruktur</a> · <a href="/arena">Live Arena</a></div>
+    {% endif %}
+    <form id="join-form" autocomplete="off">
+      <div class="field">
+        <label for="nim">NIM</label>
+        <input id="nim" name="nim" type="text" inputmode="numeric" maxlength="32" placeholder="25032014xxx" required>
+      </div>
+      <button class="btn btn-primary btn-lg" style="width:100%" type="submit">Join Arena</button>
+      <p id="join-error" class="small" style="color:var(--threat);margin-top:.6rem" role="alert"></p>
+    </form>
+    <p class="small muted">NIM hanya dicocokkan dengan roster praktikum ({{ roster_size }} mahasiswa aktif) — NIM bukan password. Satu NIM hanya dapat aktif di satu perangkat; jika berpindah perangkat, minta instruktur melepas perangkat lama.</p>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('join-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = document.getElementById('join-error');
+  err.textContent = '';
+  try {
+    const r = await CA.api('/api/join', { nim: document.getElementById('nim').value });
+    location.href = r.redirect;
+  } catch (x) { err.textContent = x.message; }
+});
+const lo = document.getElementById('logout-btn');
+if (lo) lo.addEventListener('click', async () => { await CA.api('/api/logout', {}); location.reload(); });
+</script>
+{% endblock %}

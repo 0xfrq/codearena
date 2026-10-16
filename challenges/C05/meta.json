@@ -1,0 +1,64 @@
+{
+  "id": "C05",
+  "title": "The Decorator Trap",
+  "materi": [3],
+  "case": "Kasir koperasi mahasiswa",
+  "topics": ["decorator", "custom decorator", "chaining decorator"],
+  "summary": "Koperasi memakai decorator buatan sendiri untuk validasi dan audit. Kasir mengeluh nilai saldo dari method selalu None, audit log berisi entri 'wrapper' yang muncul bahkan sebelum ada transaksi, dan jumlah entri log tidak sesuai jumlah transaksi.",
+  "objectives": [
+    "O1: menjelaskan decorator sebagai fungsi yang menerima fungsi dan mengembalikan fungsi baru.",
+    "O2: membedakan kode yang berjalan saat decorator DITERAPKAN dan kode yang berjalan saat fungsi DIPANGGIL.",
+    "O3: membuat custom decorator yang benar: meneruskan argumen, mengembalikan hasil, dan menjaga metadata (functools.wraps)."
+  ],
+  "spec": [
+    "terima_pembayaran(nominal) dan beri_kembalian(nominal) mengembalikan saldo kas terbaru.",
+    "nominal <= 0 ditolak (ValueError) sebelum operasi berjalan.",
+    "AUDIT_LOG mendapat tepat satu entri berisi nama method untuk setiap pemanggilan yang BERHASIL.",
+    "Operasi yang gagal tidak dicatat.",
+    "Method yang didekorasi tetap memiliki __name__ dan __doc__ aslinya."
+  ],
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "Wrapper menelan nilai kembalian",
+      "location": "nominal_positif.wrapper",
+      "concept": "custom decorator: meneruskan return value",
+      "scenario": "wrapper memanggil func(...) tanpa return sehingga semua method yang didekorasi mengembalikan None.",
+      "attack": "KasirKoperasi(2000).terima_pembayaran(3000) -> None (seharusnya 5000).",
+      "fix": "return func(self, nominal, *args, **kwargs)."
+    },
+    {
+      "id": "B2",
+      "title": "Audit dicatat saat definisi class, bukan saat pemanggilan",
+      "location": "catat_transaksi (AUDIT_LOG.append di luar wrapper)",
+      "concept": "waktu eksekusi decorator",
+      "scenario": "Badan decorator dieksekusi sekali ketika class didefinisikan. Pemanggilan method berikutnya tidak menambah log.",
+      "attack": "AUDIT_LOG.clear(); k.terima_pembayaran(5000) dua kali; len(AUDIT_LOG) -> 0.",
+      "fix": "Pindahkan append ke dalam wrapper setelah func berhasil."
+    },
+    {
+      "id": "B3",
+      "title": "Metadata fungsi hilang",
+      "location": "kedua decorator (tanpa functools.wraps)",
+      "concept": "custom decorator dan identitas fungsi",
+      "scenario": "Fungsi hasil dekorasi bernama 'wrapper' dan kehilangan docstring sehingga audit log dan dokumentasi salah.",
+      "attack": "KasirKoperasi.terima_pembayaran.__name__ -> 'wrapper'.",
+      "fix": "Dekorasi wrapper dengan @functools.wraps(func)."
+    }
+  ],
+  "attack_procedure": [
+    "Bandingkan nilai kembalian method dengan spesifikasi.",
+    "Bersihkan AUDIT_LOG lalu lakukan sejumlah transaksi; bandingkan jumlah entri.",
+    "Periksa __name__ dan __doc__ method yang sudah didekorasi."
+  ],
+  "rubric_notes": {
+    "attack": "Laporan B2 yang kuat menjelaskan bahwa isi AUDIT_LOG sudah terisi ketika modul di-import.",
+    "defense": "Patch harus menjaga urutan: validasi -> operasi -> pencatatan."
+  },
+  "concept_map": [
+    {"topic": "decorator", "bug": "B2", "objective": "O2"},
+    {"topic": "custom decorator", "bug": "B1", "objective": "O3"},
+    {"topic": "custom decorator", "bug": "B3", "objective": "O3"},
+    {"topic": "chaining decorator", "bug": "B3", "objective": "O1"}
+  ]
+}

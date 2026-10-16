@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Code Arena{% endblock %}</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="{% block bodyclass %}{% endblock %}">
+<header class="topbar">
+  <a class="brand" href="/"><img class="brand-mark" src="/static/favicon.svg" alt=""> CODE ARENA <small>{{ session_name }}</small></a>
+  <nav class="topnav">{% block nav %}{% endblock %}<span id="conn" class="conn" title="Status koneksi real-time">offline</span></nav>
+</header>
+{% block content %}{% endblock %}
+<div id="toasts" aria-live="polite"></div>
+<script src="/static/common.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,28 @@
+{% if patches.is_empty() %}<p class="muted">Belum ada patch. Simpan patch draft untuk membuat versi v2.</p>{% endif %}
+{% for p in patches %}
+<article class="report">
+  <div class="r-head">
+    <span class="r-title">Patch v{{ p.version }}</span>
+    <span class="badge tone-{{ p.tone }}"><span class="ico">{{ p.icon }}</span>{{ p.status_label }}</span>
+  </div>
+  <div class="small muted">
+    {% if p.is_draft %}draft terakhir disimpan {{ p.updated_at }} oleh {{ p.updated_by }}{% else %}disubmit {{ p.submitted_at }} oleh {{ p.submitted_by }}{% endif %}
+    · {{ p.tests }} regression test (dihitung statis) · menangani {{ p.addressed }}
+  </div>
+  {% if p.reviewed %}
+  <div class="notice {% if p.status == "accepted" %}ok{% else %}danger{% endif %}" style="margin-top:.5rem">
+    <b>Review</b> <span class="small muted">({{ p.reviewed_at }})</span>:
+    <span class="mono">root cause {{ p.score_rootfix }}/20 · regression {{ p.score_regression }}/15 · edge {{ p.score_edge }}/10 · penjelasan {{ p.score_explain }}/5 = <b>{{ p.points }}</b>/50</span>
+    {% if !p.review_note.is_empty() %}<div class="small" style="white-space:pre-wrap;margin-top:.3rem">{{ p.review_note }}</div>{% endif %}
+  </div>
+  {% else %}
+  {% if p.awaiting_review %}<div class="small muted" style="margin-top:.4rem">◷ Menunggu review instruktur. Status ini belum berarti patch benar.</div>{% endif %}
+  {% endif %}
+  <details style="margin-top:.4rem"><summary>Isi patch</summary>
+    <div class="section-label">Root cause</div><p style="white-space:pre-wrap">{{ p.root_cause }}</p>
+    <div class="section-label">Kode</div><pre class="code" data-ln>{{ p.code }}</pre>
+    <div class="section-label" style="margin-top:.5rem">Regression tests</div><pre class="code" data-ln>{{ p.regression_tests }}</pre>
+    {% if !p.explanation.is_empty() %}<div class="section-label" style="margin-top:.5rem">Penjelasan</div><p style="white-space:pre-wrap">{{ p.explanation }}</p>{% endif %}
+  </details>
+</article>
+{% endfor %}

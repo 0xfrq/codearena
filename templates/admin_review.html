@@ -1,0 +1,53 @@
+{% if !has_round %}
+<p class="muted">Belum ada ronde berjalan.</p>
+{% else %}
+<div class="row between" style="margin-bottom:.6rem">
+  <div class="filterbar" data-filter-group="review" style="margin:0">
+    <button class="filter-chip active" type="button" data-f="pending">pending</button>
+    <button class="filter-chip" type="button" data-f="all">semua</button>
+    <button class="filter-chip" type="button" data-f="valid">valid</button>
+    <button class="filter-chip" type="button" data-f="invalid">invalid</button>
+    <button class="filter-chip" type="button" data-f="duplicate">duplicate</button>
+  </div>
+  <span class="small muted" data-review-count="{{ pending_reports + pending_patches }}">Ronde {{ round_number }} · {{ pending_reports }} laporan &amp; {{ pending_patches }} patch menunggu review</span>
+</div>
+<div class="grid grid-2">
+  <div>
+    <h3>Attack reports</h3>
+    <div data-filter-list="review">
+    {% if reports.is_empty() %}<p class="muted">Belum ada laporan resmi.</p>{% endif %}
+    {% for r in reports %}
+      <article class="report" data-filter="{{ r.filter }}">
+        <div class="r-head">
+          <span class="r-title">#{{ r.id }} {{ r.attacker_name }} → {{ r.target_name }}: {{ r.title }}</span>
+          <span class="badge tone-{{ r.tone }}"><span class="ico">{{ r.icon }}</span>{{ r.status_label }}</span>
+        </div>
+        <div class="small muted">submit {{ r.submitted_at }} oleh {{ r.submitted_by }} · revisi {{ r.revision }}{% if !r.possible_duplicate.is_empty() %} · <b class="tone-investigate">kemungkinan duplikat dari {{ r.possible_duplicate }}</b>{% endif %}</div>
+        {% include "_review_box.html" %}
+        {% if !r.rebuttal.is_empty() %}<div class="notice" style="margin-top:.4rem"><b>Rebuttal defender</b> ({{ r.rebuttal_at }} oleh {{ r.rebuttal_by }}):<div style="white-space:pre-wrap">{{ r.rebuttal }}</div></div>{% endif %}
+        <details {% if r.awaiting_review %}open{% endif %}><summary>Isi laporan</summary>{% include "_report_body.html" %}</details>
+        <div class="row" style="margin-top:.4rem"><button class="btn btn-sm btn-review" type="button" data-review-report="{{ r.json }}" data-title="#{{ r.id }} {{ r.attacker_name }} → {{ r.target_name }}">{% if r.reviewed %}Ubah review{% else %}Review laporan{% endif %}</button></div>
+      </article>
+    {% endfor %}
+    </div>
+  </div>
+  <div>
+    <h3>Patch submissions</h3>
+    {% if patches.is_empty() %}<p class="muted">Belum ada patch yang disubmit.</p>{% endif %}
+    {% for p in patches %}
+      <article class="report" data-filter="{% if p.awaiting_review %}pending{% else %}{% if p.status == "accepted" %}valid{% else %}invalid{% endif %}{% endif %}">
+        <div class="r-head"><span class="r-title">{{ p.team_name }} — patch v{{ p.version }}</span><span class="badge tone-{{ p.tone }}"><span class="ico">{{ p.icon }}</span>{{ p.status_label }}</span></div>
+        <div class="small muted">submit {{ p.submitted_at }} oleh {{ p.submitted_by }} · {{ p.tests }} regression test · menangani {{ p.addressed }}{% if p.reviewed %} · rubric {{ p.points }}/50{% endif %}</div>
+        {% if !p.review_note.is_empty() %}<div class="small" style="white-space:pre-wrap;margin-top:.3rem">{{ p.review_note }}</div>{% endif %}
+        <details {% if p.awaiting_review %}open{% endif %}><summary>Root cause, kode &amp; regression test</summary>
+          <div class="section-label">Root cause</div><p style="white-space:pre-wrap">{{ p.root_cause }}</p>
+          <div class="section-label">Penjelasan</div><p style="white-space:pre-wrap">{{ p.explanation }}</p>
+          <div class="section-label">Kode</div><pre class="code" data-ln>{{ p.code }}</pre>
+          <div class="section-label" style="margin-top:.4rem">Regression tests</div><pre class="code" data-ln>{{ p.regression_tests }}</pre>
+        </details>
+        <div class="row" style="margin-top:.4rem"><button class="btn btn-sm btn-review" type="button" data-review-patch="{{ p.json }}" data-title="{{ p.team_name }} — patch v{{ p.version }}">{% if p.reviewed %}Ubah review{% else %}Review patch{% endif %}</button></div>
+      </article>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
