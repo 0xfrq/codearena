@@ -492,7 +492,7 @@ async fn round_fragment(state: &AppState, s: &db::SessionRow, names: &HashMap<i6
             .map(|(n, c, st, fin)| (n, c, st, fin.map(fmt_time).unwrap_or_default()))
             .collect(),
     };
-    if let Some(r) = round.filter(|r| r.state != "finalized" || true) {
+    if let Some(r) = round {
         let now = now_ms();
         let pairs = engine::pairings(&mut conn, r.id).await?;
         let (open_reports,): (i64,) = sqlx::query_as(

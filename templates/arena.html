@@ -6,14 +6,17 @@
 <div class="arena-body">
   <section class="summary-strip">
     <div class="summary-main">
-      <div class="section-label" id="a-session">{{ session_name }}</div>
-      <div class="round-line"><span class="challenge" id="a-challenge">Belum ada ronde</span></div>
-      <div class="round-line" style="margin-top:.25rem"><span id="a-round" class="pill">-</span><span id="a-phase" class="badge tone-idle"><span class="ico">○</span>-</span><span class="clock" id="a-clock">--:--</span></div>
+      <div>
+        <div class="section-label" id="a-session">{{ session_name }}</div>
+        <div class="challenge" id="a-challenge">Belum ada ronde</div>
+        <div class="round-line" style="margin-top:.3rem"><span id="a-round" class="pill">-</span><span id="a-phase" class="badge tone-idle"><span class="ico">○</span>-</span></div>
+      </div>
+      <span class="clock" id="a-clock" title="Waktu fase dari server">--:--</span>
     </div>
     <button class="stat" type="button" data-list="teams"><span class="v" id="s-teams">0</span><span class="k">Kelompok</span></button>
     <button class="stat" type="button" data-list="online"><span class="v" id="s-online">0</span><span class="k">Peserta online</span></button>
     <button class="stat" type="button" data-list="reports"><span class="v" id="s-reports">0</span><span class="k">Attack report</span></button>
-    <button class="stat" type="button" data-list="valid"><span class="v" id="s-valid">0</span><span class="k">Temuan valid</span></button>
+    <button class="stat" type="button" data-list="valid"><span class="v" id="s-valid">0</span><span class="k">Temuan valid · <span id="s-invalid">0</span> ditolak</span></button>
     <button class="stat" type="button" data-list="patches"><span class="v" id="s-patches">0</span><span class="k">Patch terverifikasi</span></button>
     <button class="stat" type="button" data-list="awaiting"><span class="v" id="s-awaiting">0</span><span class="k">Tim menunggu review</span></button>
   </section>

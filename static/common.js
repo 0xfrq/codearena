@@ -282,6 +282,7 @@
     let lastV = 0;
     let retry = 0;
     let everOpen = false;
+    let snapshots = 0;
     const api = {
       resync() { if (ws && ws.readyState === 1) ws.send('resync'); },
       get lastV() { return lastV; },
@@ -298,7 +299,9 @@
         if (msg.t === 'snapshot') {
           lastV = msg.v;
           setConn('ok');
+          snapshots += 1;
           try { handlers.onSnapshot(msg.data, msg); } catch (e) { console.error(e); }
+          if (snapshots > 1 && window.CAChat) window.CAChat.reload();
         } else if (msg.t === 'ev') {
           if (msg.v <= lastV) return; // already reflected in the snapshot
           lastV = msg.v;
@@ -312,10 +315,7 @@
           CA.toast(msg.message || 'Kesalahan server', 'error');
         }
       };
-      ws.onclose = (ev) => {
-        if (ev.code === 1008 || (!everOpen && retry > 3)) {
-          // likely not logged in any more
-        }
+      ws.onclose = () => {
         setConn('bad');
         retry += 1;
         setTimeout(open, Math.min(8000, 400 * Math.pow(2, Math.min(retry, 5))));

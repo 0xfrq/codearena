@@ -142,5 +142,11 @@
     });
   }
 
-  window.CAChat = { mount, onEvent, widgets };
+  /* After a reconnect the server resends a snapshot; reload persisted history so messages sent
+     while this browser was offline are not lost from view. */
+  function reload() {
+    widgets.forEach((w) => w.rooms.forEach((r) => load(w, r)));
+  }
+
+  window.CAChat = { mount, onEvent, reload, widgets };
 })();

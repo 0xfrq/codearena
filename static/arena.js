@@ -6,8 +6,8 @@
   const boot = JSON.parse(document.getElementById('boot').textContent);
   const $ = (id) => document.getElementById(id);
   const SVGNS = 'http://www.w3.org/2000/svg';
-  const NODE_W = 236;
-  const NODE_H = 124;
+  const NODE_W = 250;
+  const NODE_H = 134;
   const TONES = ['idle', 'investigate', 'threat', 'analysis', 'review', 'success', 'fail'];
   const TONE_COLOR = {};
 
@@ -71,6 +71,7 @@
     CA.animateNumber($('s-online'), s.online);
     CA.animateNumber($('s-reports'), s.reports);
     CA.animateNumber($('s-valid'), s.valid);
+    $('s-invalid').textContent = s.invalid;
     CA.animateNumber($('s-patches'), s.verified_patches);
     CA.animateNumber($('s-awaiting'), s.awaiting_review_teams);
   }
@@ -131,20 +132,24 @@
       return pos;
     }
     const cyc = cycles(teams, edges).sort((a, b) => b.length - a.length);
-    // chord between neighbours leaves room for the ATTACK label between two node cards
-    const radiusFor = (n) => (n <= 1 ? 0 : n === 2 ? 150 : Math.max(210, (NODE_W + 170) / (2 * Math.sin(Math.PI / n))));
+    // Ellipse (wider than tall, like a projector screen). Neighbouring cards keep a gap wide
+    // enough for the ATTACK label between them.
+    const radiiFor = (n) => {
+      if (n <= 1) return [0, 0];
+      if (n === 2) return [210, 0];
+      const r = Math.max(190, (NODE_W + 120) / (2 * Math.sin(Math.PI / n)));
+      return [r * 1.25, r * 0.78];
+    };
     let cursorX = 0;
-    let maxH = 0;
     cyc.forEach((c) => {
-      const R = radiusFor(c.length);
-      const cx = cursorX + R + NODE_W / 2 + 40;
-      const cy = R + NODE_H / 2 + 60;
+      const [rx, ry] = radiiFor(c.length);
+      const cx = cursorX + rx + NODE_W / 2 + 30;
+      const cy = Math.max(ry, 60) + NODE_H / 2 + 40;
       c.forEach((id, i) => {
-        const a = -Math.PI / 2 + (2 * Math.PI * i) / c.length;
-        pos.set(id, { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) });
+        const a = (c.length === 2 ? Math.PI : -Math.PI / 2) + (2 * Math.PI * i) / c.length;
+        pos.set(id, { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) });
       });
-      cursorX = cx + R + NODE_W / 2 + 40;
-      maxH = Math.max(maxH, cy + R + NODE_H / 2 + 60);
+      cursorX = cx + rx + NODE_W / 2 + 30;
     });
     return pos;
   }
@@ -221,13 +226,13 @@
       el('path', { class: 'hit', d }, g);
       const title = el('title', {}, g);
       title.textContent = teamName(e.attacker_id) + ' menyerang ' + teamName(e.target_id) + ' — ronde ' + e.round + ' — ' + st.text + (e.locked ? ' (pairing dikunci)' : ' (usulan, belum dikunci)');
-      // label at curve midpoint
-      const mx = 0.25 * p0.x + 0.5 * ctrl.x + 0.25 * p2.x;
-      const my = 0.25 * p0.y + 0.5 * ctrl.y + 0.25 * p2.y;
+      // label at curve midpoint, nudged further along the bow so it clears the node cards
+      const mx = 0.25 * p0.x + 0.5 * ctrl.x + 0.25 * p2.x + (dy / len) * 14;
+      const my = 0.25 * p0.y + 0.5 * ctrl.y + 0.25 * p2.y - (dx / len) * 14;
       const lg = el('g', { class: 'edge tag' + (dim ? ' dim' : ''), 'data-edge': e.attacker_id, transform: 'translate(' + mx.toFixed(1) + ',' + my.toFixed(1) + ')', style: 'cursor:pointer' }, labelLayer);
-      const w = st.text.length * 6.9 + 18;
-      el('rect', { x: -w / 2, y: -12, width: w, height: 24, rx: 12, stroke: TONE_COLOR[st.tone], fill: '#0e1624' }, lg);
-      const tx = el('text', { 'text-anchor': 'middle', y: '4', fill: TONE_COLOR[st.tone], style: 'font:700 12px var(--sans);letter-spacing:.04em' }, lg);
+      const w = st.text.length * 7.6 + 20;
+      el('rect', { x: -w / 2, y: -13, width: w, height: 26, rx: 13, stroke: TONE_COLOR[st.tone], fill: '#0e1624' }, lg);
+      const tx = el('text', { 'text-anchor': 'middle', y: '5', fill: TONE_COLOR[st.tone] }, lg);
       tx.textContent = st.text;
     });
 
@@ -244,25 +249,22 @@
       el('rect', { x: 0, y: NODE_H / 2, width: 6, height: NODE_H / 2, rx: 3, fill: TONE_COLOR[defenseTone] }, g);
       const name = el('text', { class: 'name', x: 16, y: 26 }, g);
       name.textContent = trunc(t.name.toUpperCase(), 14);
-      const pts = el('text', { class: 'score', x: NODE_W - 12, y: 26, 'text-anchor': 'end' }, g);
+      const pts = el('text', { class: 'score', x: NODE_W - 12, y: 27, 'text-anchor': 'end' }, g);
       pts.textContent = sc ? sc.cumulative : 0;
       const row = (y, lbl, st, tone) => {
         const l = el('text', { class: 'lbl', x: 16, y }, g);
         l.textContent = lbl;
-        const v = el('text', { class: 'st', x: 54, y, fill: TONE_COLOR[tone] }, g);
-        v.textContent = st ? (st.icon + ' ' + trunc(st.label, 23)) : '○ —';
+        const v = el('text', { class: 'st', x: 52, y, fill: TONE_COLOR[tone] }, g);
+        v.textContent = st ? (st.icon + ' ' + trunc(st.label, 21)) : '○ —';
       };
-      row(52, 'ATK', t.attack, attackTone);
-      row(74, 'DEF', t.defense, defenseTone);
-      const meta = el('text', { class: 'meta', x: 16, y: 100 }, g);
-      const bits = ['● ' + t.online + '/' + t.members.length + ' online'];
-      if (s) {
-        bits.push(s.open_findings + ' temuan terbuka');
-        if (s.patch) bits.push('patch v' + s.patch.version + ' ' + s.patch.status);
-      }
-      meta.textContent = trunc(bits.join(' · '), 38);
-      const meta2 = el('text', { class: 'meta', x: 16, y: 116 }, g);
-      meta2.textContent = sc ? ('ronde ' + sc.round.total + ' · A' + sc.round.attack + ' D' + sc.round.defense + ' R' + sc.round.rebuttal) : '';
+      row(55, 'ATK', t.attack, attackTone);
+      row(80, 'DEF', t.defense, defenseTone);
+      const meta = el('text', { class: 'meta', x: 16, y: 104 }, g);
+      const bits = ['● ' + t.online + '/' + t.members.length + ' on'];
+      if (s) bits.push(s.open_findings + ' temuan terbuka');
+      meta.textContent = trunc(bits.join(' · '), 29);
+      const meta2 = el('text', { class: 'meta', x: 16, y: 122 }, g);
+      meta2.textContent = trunc((s && s.patch ? 'patch v' + s.patch.version + ' ' + s.patch.status + ' · ' : '') + (sc ? 'ronde ' + sc.round.total : ''), 29);
       const title = el('title', {}, g);
       title.textContent = t.name + '\nATTACK: ' + (t.attack ? t.attack.label + ' — ' + t.attack.reason : '-') + '\nDEFENSE: ' + (t.defense ? t.defense.label + ' — ' + t.defense.reason : '-');
     });
@@ -298,7 +300,8 @@
         '<div class="sec"><div class="sec-t">ROUND STATUS &amp; SKOR</div><dl>' +
         '<dt>Time remaining</dt><dd class="mono">' + timeLeft() + '</dd>' +
         '<dt>Skor ronde</dt><dd>' + sc.round.total + ' ' + (sc.round_finalized ? '<span class="badge tone-success"><span class="ico">✓</span>final</span>' : '<span class="badge tone-review"><span class="ico">◷</span>berjalan</span>') + '</dd></dl>' +
-        '<div class="scoreline"><span>attack ' + sc.round.attack + '</span><span>defense ' + sc.round.defense + '</span><span>rebuttal ' + sc.round.rebuttal + '</span><span>valid ' + sc.valid_findings_total + '</span><span>patch ✓ ' + sc.accepted_patches_total + '</span></div></div>' +
+        '<div class="scoreline"><span>attack ' + sc.round.attack + '</span><span>defense ' + sc.round.defense + '</span><span>rebuttal ' + sc.round.rebuttal + '</span></div>' +
+        '<div class="scoreline"><span>total sesi: ' + sc.valid_findings_total + ' temuan valid</span><span>' + sc.accepted_patches_total + ' patch accepted</span></div></div>' +
         '<div class="small muted" style="margin-top:.4rem">● ' + t.online + '/' + t.members.length + ' anggota online</div>' +
         '</article>';
     }).join('');
@@ -415,7 +418,10 @@
       case 'reports':
         return rows(s.edges.map((e) => '<tr data-edge-row="' + e.attacker_id + '" style="cursor:pointer"><td>' + CA.esc(teamName(e.attacker_id)) + ' → ' + CA.esc(teamName(e.target_id)) + '</td><td>' + e.counts.official + ' laporan · ' + e.counts.pending + ' pending · ' + e.counts.valid + ' valid · ' + (e.counts.invalid + e.counts.duplicate) + ' ditolak</td></tr>'));
       case 'valid':
-        return rows(snap.teams.map((t) => { const x = tstats(t.id); return teamRow(t, (x ? x.outgoing.valid : 0) + ' temuan valid ronde ini'); }));
+        return rows(snap.teams.map((t) => {
+          const x = tstats(t.id);
+          return teamRow(t, x ? x.outgoing.valid + ' valid · ' + x.outgoing.invalid + ' invalid · ' + x.outgoing.duplicate + ' duplikat (ronde ini)' : '-');
+        }));
       case 'patches':
         return rows(snap.teams.map((t) => { const x = tstats(t.id); return teamRow(t, x && x.patch ? 'v' + x.patch.version + ' — ' + CA.esc(x.patch.label) + ' · ' + x.patches_accepted + ' accepted' : 'belum ada patch'); }));
       case 'awaiting':

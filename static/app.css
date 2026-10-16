@@ -217,9 +217,8 @@ dialog .dlg-foot { padding: .8rem 1.1rem; border-top: 1px solid var(--border); d
 
 /* ---------- arena ---------- */
 .arena-body { display: flex; flex-direction: column; height: calc(100vh - 49px); }
-.summary-strip { display: grid; grid-template-columns: minmax(300px, 1.3fr) repeat(auto-fit, minmax(110px, 1fr)); gap: .5rem; padding: .75rem 1.25rem .5rem; }
-.summary-main { display: flex; flex-direction: column; justify-content: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem .9rem; }
-.summary-main .round-line .clock { margin-left: auto; }
+.summary-strip { display: grid; grid-template-columns: minmax(420px, 2fr) repeat(6, minmax(100px, 1fr)); gap: .5rem; padding: .75rem 1.25rem .5rem; }
+.summary-main { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .75rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem .9rem; }
 .summary-main .round-line { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 .summary-main .challenge { font-size: 1.05rem; font-weight: 700; }
 .clock { font: 800 2.3rem/1 var(--mono); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
@@ -272,16 +271,16 @@ dialog .dlg-foot { padding: .8rem 1.1rem; border-top: 1px solid var(--border); d
 .node:hover rect.frame { stroke: var(--text-2); }
 .node.dim { opacity: .22; }
 .node text { fill: var(--text); font-family: var(--sans); }
-.node .name { font-size: 19px; font-weight: 800; letter-spacing: .04em; }
-.node .score { font: 800 19px var(--mono); }
-.node .lbl { font-size: 11px; fill: var(--muted); letter-spacing: .12em; font-weight: 700; }
-.node .st { font-size: 13.5px; font-weight: 700; }
-.node .meta { font-size: 12px; fill: var(--text-2); font-family: var(--mono); }
+.node .name { font-size: 21px; font-weight: 800; letter-spacing: .04em; }
+.node .score { font: 800 21px var(--mono); }
+.node .lbl { font-size: 12px; fill: var(--muted); letter-spacing: .1em; font-weight: 700; }
+.node .st { font-size: 15.5px; font-weight: 700; }
+.node .meta { font-size: 13px; fill: var(--text-2); font-family: var(--mono); }
 .edge path.line { fill: none; stroke-width: 3; }
 .edge path.hit { fill: none; stroke: transparent; stroke-width: 18; cursor: pointer; }
 .edge.dim { opacity: .18; }
 .edge .tag rect { fill: #0e1624; stroke-width: 1.5; }
-.edge .tag text { font: 700 12px var(--sans); letter-spacing: .04em; }
+.edge .tag text { font: 700 13px var(--sans); letter-spacing: .04em; }
 .edge:hover path.line { stroke-width: 4.5; }
 
 /* board */
