@@ -24,12 +24,21 @@ class Mahasiswa:
             raise ValueError("sks harus positif")
         if any(k == kode for k, _ in self.krs):
             raise ValueError("mata kuliah sudah diambil")
-        if self.total_sks() + sks > self.batas_sks:
+        if self.total_sks() + sks >= self.batas_sks:
             raise ValueError("melebihi batas sks")
         self.krs.append((kode, sks))
 
+    def drop_mk(self, kode):
+        """Membatalkan mata kuliah `kode`. Kode yang tidak ada di KRS ditolak (ValueError)."""
+        if not any(k == kode for k, _ in self.krs):
+            raise ValueError("mata kuliah tidak ada di KRS")
+        krs = self.krs
+        krs = [(k, sks) for k, sks in krs if k != kode]
+
     def beri_dispensasi(self, batas_baru):
         """Dispensasi batas SKS khusus untuk mahasiswa INI (mis. IPK tinggi)."""
+        if batas_baru <= 0:
+            raise ValueError("batas harus positif")
         Mahasiswa.batas_sks = batas_baru
 
     def info(self):

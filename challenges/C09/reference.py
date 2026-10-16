@@ -1,10 +1,11 @@
 """C09 — Multiple Inheritance Conflict (reference solution)
 
 Perbaikan:
-- B1: LogMixin.__init__ memakai super().__init__ (cooperative) sehingga ValidasiMixin.__init__ ikut berjalan.
-- B2: LogMixin.proses memakai super().proses() sehingga mengikuti MRO: LogMixin -> ValidasiMixin -> Pembayaran.
-- B3: PembayaranKantin tidak memanggil kedua mixin secara eksplisit (yang menyebabkan debit ganda);
-      cukup mewarisi rantai MRO yang sudah benar.
+- B1: LogMixin.__init__ cooperative (super().__init__) sehingga ValidasiMixin.__init__ ikut berjalan.
+- B2: LogMixin.proses memakai super().proses() sehingga validasi berikutnya di MRO tidak dilewati.
+- B3: PembayaranKantin tidak memanggil kedua mixin secara eksplisit; cukup mewarisi rantai MRO.
+- B4: urutan base PembayaranParkir diperbaiki menjadi (LogMixin, ValidasiMixin).
+- B5: PembayaranHibah menetapkan batas SETELAH super().__init__ agar tidak ditimpa base.
 """
 
 
@@ -45,8 +46,18 @@ class ValidasiMixin(Pembayaran):
 
 
 class PembayaranUKT(LogMixin, ValidasiMixin):
-    """Pembayaran UKT: dicatat lalu divalidasi sebelum didebit."""
+    pass
 
 
 class PembayaranKantin(LogMixin, ValidasiMixin):
-    """Pembayaran kantin: rantai MRO sudah menjalankan kedua mixin tepat sekali."""
+    pass
+
+
+class PembayaranParkir(LogMixin, ValidasiMixin):
+    pass
+
+
+class PembayaranHibah(ValidasiMixin, Pembayaran):
+    def __init__(self, dompet, jumlah):
+        super().__init__(dompet, jumlah)
+        self.batas = 50_000_000

@@ -3,7 +3,7 @@
 Slip gaji bertingkat: Pegawai -> PegawaiTetap -> Manajer (nested inheritance).
   - Pegawai      : gaji = gaji_pokok + jam_lembur * 40.000
   - PegawaiTetap : gaji Pegawai + tunjangan
-  - Manajer      : gaji PegawaiTetap + bonus_jabatan
+  - Manajer      : gaji PegawaiTetap + bonus_jabatan; slip manajer diberi penanda ' *'
 """
 
 TARIF_LEMBUR = 40_000
@@ -49,7 +49,15 @@ class Manajer(PegawaiTetap):
     def hitung_gaji(self, jam_lembur=0):
         return Pegawai.hitung_gaji(self, jam_lembur) + self.bonus_jabatan
 
+    def slip(self, jam_lembur=0):
+        return super().slip() + " *"
+
 
 def total_penggajian(daftar_pegawai, jam_lembur=0):
     """Total gaji semua pegawai (polimorfik) untuk jam lembur yang sama."""
-    return sum(p.hitung_gaji(jam_lembur) for p in daftar_pegawai)
+    total = 0
+    for p in daftar_pegawai:
+        total += p.hitung_gaji(jam_lembur)
+        if isinstance(p, PegawaiTetap):
+            total += p.tunjangan  # tunjangan pegawai tetap ikut direkap
+    return total

@@ -3,7 +3,7 @@
 Layanan peminjaman buku perpustakaan kampus.
 Method pinjam() dibungkus beberapa decorator yang dirangkai (chaining):
 
-    @catat_panggilan      -> mencatat (nama_fungsi, args, kwargs) ke LOG_PANGGILAN
+    @catat_panggilan      -> mencatat (nama_fungsi, args, kwargs) ke LOG_PANGGILAN untuk SETIAP pemanggilan
     @hitung_peminjaman    -> menambah statistik HANYA untuk peminjaman yang BERHASIL
     @wajib_anggota        -> menolak (PermissionError) jika member bukan anggota
     @batas_durasi(14)     -> menolak (ValueError) durasi > 14 hari
@@ -14,8 +14,9 @@ LOG_PANGGILAN = []
 
 def catat_panggilan(func):
     def wrapper(self, *args):
+        hasil = func(self, *args)
         LOG_PANGGILAN.append((func.__name__, args))
-        return func(self, *args)
+        return hasil
 
     wrapper.__name__ = func.__name__
     return wrapper
@@ -43,7 +44,7 @@ def wajib_anggota(func):
 def batas_durasi(maks):
     def decorator(func):
         def wrapper(self, *args, **kwargs):
-            durasi = kwargs.get("durasi", 7)
+            durasi = kwargs.pop("durasi", 7)
             if durasi > maks:
                 raise ValueError(f"durasi maksimal {maks} hari")
             return func(self, *args, **kwargs)

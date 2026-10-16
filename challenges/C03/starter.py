@@ -11,9 +11,20 @@ class Tabungan:
     def __init__(self, pemilik, saldo_awal=0):
         if saldo_awal < 0:
             raise ValueError("saldo awal tidak boleh negatif")
-        self.pemilik = pemilik      # public
+        self._pemilik = pemilik     # protected: diakses lewat property pemilik
         self._riwayat = []          # protected (konvensi): dipakai class turunan
         self.__saldo = saldo_awal   # private: name mangling -> _Tabungan__saldo
+
+    @property
+    def pemilik(self):
+        return self._pemilik
+
+    @pemilik.setter
+    def pemilik(self, nama):
+        nama = str(nama).strip()
+        if not nama:
+            raise ValueError("nama pemilik wajib diisi")
+        self._pemilik = nama
 
     @property
     def saldo(self):
@@ -37,7 +48,8 @@ class Tabungan:
         self._riwayat.append(("tarik", jumlah))
 
     def riwayat(self):
-        return list(self._riwayat)
+        """Daftar transaksi (jenis, jumlah) rekening ini."""
+        return self._riwayat
 
 
 class TabunganPelajar(Tabungan):

@@ -52,7 +52,10 @@ def bisa_diekspor(obj) -> bool:
 
 
 def ekspor_semua(dokumen):
-    """Mengekspor semua dokumen. Objek tanpa perilaku export() ditolak dengan TypeError."""
+    """Mengekspor semua dokumen dari iterable apa pun.
+    Objek tanpa perilaku export() ditolak dengan TypeError."""
+    if not isinstance(dokumen, list):
+        raise TypeError("dokumen harus berupa list")
     hasil = []
     for d in dokumen:
         if isinstance(d, LaporanBase):

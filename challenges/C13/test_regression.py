@@ -21,14 +21,6 @@ class TestNormalBehavior(unittest.TestCase):
         a.topup(25_000)
         self.assertEqual(a.saldo, 25_000)
 
-    def test_normal_transfer_dengan_biaya_polimorfik(self):
-        merchant = AkunMerchant("Kantin", 100_000)
-        mhs = AkunMahasiswa("Ani", 0)
-        biaya = PemrosesPembayaran().transfer(merchant, mhs, 50_000)
-        self.assertEqual(biaya, 1_000)
-        self.assertEqual(merchant.saldo, 49_000)
-        self.assertEqual(mhs.saldo, 50_000)
-
     def test_normal_batas_harian_mahasiswa(self):
         mhs = AkunMahasiswa("Budi", 5_000_000)
         with self.assertRaises(ValueError):
@@ -96,6 +88,41 @@ class TestB5DuckTypedProcessor(unittest.TestCase):
     def test_b5_akun_tetap_diterima(self):
         p = PemrosesPembayaran()
         self.assertEqual(p.proses(AkunMerchant("Kantin G", 5_000), 2_000), "AKUN Kantin G 2000")
+
+
+class TestB6BiayaTransferAsal(unittest.TestCase):
+    def test_b6_biaya_mengikuti_akun_asal_merchant(self):
+        merchant = AkunMerchant("Kantin", 100_000)
+        mhs = AkunMahasiswa("Ani", 0)
+        biaya = PemrosesPembayaran().transfer(merchant, mhs, 50_000)
+        self.assertEqual(biaya, 1_000)
+        self.assertEqual(merchant.saldo, 49_000)
+        self.assertEqual(mhs.saldo, 50_000)
+
+    def test_b6_mahasiswa_ke_merchant_tanpa_biaya(self):
+        mhs = AkunMahasiswa("Budi", 200_000)
+        merchant = AkunMerchant("Fotokopi", 0)
+        biaya = PemrosesPembayaran().transfer(mhs, merchant, 150_000)
+        self.assertEqual(biaya, 0)
+        self.assertEqual(mhs.saldo, 50_000)
+        self.assertEqual(merchant.saldo, 150_000)
+
+
+class TestB7TransferTidakValid(unittest.TestCase):
+    def test_b7_transfer_nol_tidak_memotong_biaya(self):
+        asal = AkunMerchant("Kantin H", 50_000)
+        tujuan = AkunMerchant("Kantin I", 0)
+        with self.assertRaises(ValueError):
+            PemrosesPembayaran().transfer(asal, tujuan, 0)
+        self.assertEqual(asal.saldo, 50_000)
+        self.assertEqual(tujuan.saldo, 0)
+
+    def test_b7_transfer_negatif_ditolak(self):
+        asal = AkunMerchant("Kantin J", 50_000)
+        tujuan = AkunMerchant("Kantin K", 10_000)
+        with self.assertRaises(ValueError):
+            PemrosesPembayaran().transfer(asal, tujuan, -5_000)
+        self.assertEqual((asal.saldo, tujuan.saldo), (50_000, 10_000))
 
 
 if __name__ == "__main__":

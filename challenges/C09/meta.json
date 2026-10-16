@@ -2,61 +2,86 @@
   "id": "C09",
   "title": "Multiple Inheritance Conflict",
   "materi": [4],
-  "case": "Pembayaran UKT dan kantin kampus",
+  "case": "Pembayaran UKT, kantin, parkir, dan hibah riset kampus",
   "topics": ["multiple inheritance", "inheritance", "overriding", "base class"],
-  "summary": "Pembayaran kampus menggabungkan LogMixin dan ValidasiMixin. Pembayaran UKT gagal karena attribute batas hilang, validasi saldo tidak pernah berjalan, dan pembayaran kantin memotong saldo dua kali.",
+  "summary": "Pembayaran kampus menggabungkan LogMixin dan ValidasiMixin. Pembayaran UKT gagal karena attribute batas hilang, validasi saldo tidak pernah berjalan, pembayaran kantin memotong saldo dua kali, pembayaran parkir memvalidasi sebelum mencatat log, dan pencairan hibah 20 juta ditolak padahal batas hibah 50 juta.",
   "objectives": [
-    "O1: membaca Method Resolution Order (MRO) dan memprediksi urutan pemanggilan method.",
-    "O2: menulis constructor dan method cooperative dengan super() pada multiple inheritance.",
-    "O3: menjelaskan masalah diamond (pemanggilan base class berulang) dan cara menghindarinya."
+    "O1: menjelaskan Method Resolution Order (MRO) dan bagaimana urutan base class menentukan urutan eksekusi super().",
+    "O2: menulis constructor dan method yang cooperative (super()) pada multiple inheritance, termasuk kapan attribute subclass harus di-set relatif terhadap super().__init__.",
+    "O3: menghindari eksekusi ganda base class (diamond problem) akibat pemanggilan eksplisit."
   ],
   "spec": [
-    "MRO PembayaranUKT/PembayaranKantin: (Class, LogMixin, ValidasiMixin, Pembayaran, object).",
-    "Setelah dibuat, object memiliki kanal='aplikasi' dan batas=10_000_000.",
+    "MRO PembayaranUKT/PembayaranKantin/PembayaranParkir: (Class, LogMixin, ValidasiMixin, Pembayaran, object).",
+    "Setelah dibuat, object ber-log memiliki kanal='aplikasi' dan batas=10_000_000.",
     "proses() menjalankan log -> validasi -> debit tepat satu kali dan mengembalikan saldo baru.",
-    "Jumlah <= 0, di atas batas, atau melebihi saldo ditolak (ValueError) tanpa mengubah saldo."
+    "Jumlah <= 0, di atas batas, atau melebihi saldo ditolak (ValueError) tanpa mengubah saldo.",
+    "PembayaranHibah (ValidasiMixin, Pembayaran) tidak memakai log; batasnya 50_000_000 dan alurnya validasi -> debit."
   ],
   "bugs": [
     {
       "id": "B1",
       "title": "Constructor tidak cooperative",
-      "location": "LogMixin.__init__",
+      "location": "LogMixin.__init__: Pembayaran.__init__(self, ...)",
       "concept": "multiple inheritance dan super().__init__",
-      "scenario": "LogMixin memanggil Pembayaran.__init__ langsung sehingga ValidasiMixin.__init__ (berikutnya di MRO) dilewati dan attribute batas tidak pernah dibuat.",
-      "attack": "PembayaranUKT({'saldo': 10}, 5).batas -> AttributeError.",
-      "fix": "super().__init__(dompet, jumlah)."
+      "scenario": "LogMixin memanggil Pembayaran.__init__ secara eksplisit. Dalam MRO PembayaranUKT, kelas berikutnya setelah LogMixin adalah ValidasiMixin, bukan Pembayaran, sehingga ValidasiMixin.__init__ dilewati dan batas tidak pernah dibuat.",
+      "attack": "PembayaranUKT({'saldo': 1000}, 100).batas -> AttributeError.",
+      "fix": "super().__init__(dompet, jumlah) di LogMixin."
     },
     {
       "id": "B2",
       "title": "Validasi dilewati karena pemanggilan base eksplisit",
       "location": "LogMixin.proses: Pembayaran.proses(self)",
       "concept": "MRO dan super() pada method",
-      "scenario": "LogMixin melompat langsung ke Pembayaran.proses sehingga ValidasiMixin.proses tidak pernah dipanggil; pembayaran melebihi saldo atau negatif diterima.",
-      "attack": "dompet={'saldo':1000}; PembayaranUKT(dompet, 2000).proses() -> saldo -1000.",
+      "scenario": "Pemanggilan Pembayaran.proses langsung melompati ValidasiMixin.proses di MRO, sehingga pembayaran melebihi saldo tetap didebit.",
+      "attack": "d = {'saldo': 100_000}; PembayaranUKT(d, 500_000).proses() -> -400000.",
       "fix": "return super().proses()."
     },
     {
       "id": "B3",
       "title": "Debit ganda (diamond problem)",
       "location": "PembayaranKantin.proses",
-      "concept": "multiple inheritance — eksekusi base berulang",
-      "scenario": "Memanggil LogMixin.proses dan ValidasiMixin.proses secara eksplisit membuat Pembayaran.proses dijalankan lebih dari sekali.",
-      "attack": "dompet={'saldo':50000}; PembayaranKantin(dompet, 15000).proses(); dompet['saldo'] -> 20000 (seharusnya 35000) setelah B1/B2 diperbaiki.",
-      "fix": "Hapus override atau gunakan satu pemanggilan super().proses()."
+      "concept": "multiple inheritance: eksekusi base berulang",
+      "scenario": "Memanggil LogMixin.proses lalu ValidasiMixin.proses secara eksplisit menjalankan rantai sampai Pembayaran.proses dua kali, sehingga saldo didebit dua kali.",
+      "attack": "Pada snapshot yang B1-nya sudah diperbaiki: PembayaranKantin({'saldo': 100_000}, 20_000).proses() -> 60000; jejak berisi 2x 'debit'. Pada starter, ValidasiMixin.proses crash (AttributeError batas) SETELAH debit pertama terjadi.",
+      "fix": "Hapus override (atau cukup return super().proses())."
+    },
+    {
+      "id": "B4",
+      "title": "Urutan base class parkir terbalik",
+      "location": "class PembayaranParkir(ValidasiMixin, LogMixin)",
+      "concept": "urutan base class menentukan MRO dan urutan eksekusi",
+      "scenario": "Karena ValidasiMixin ditulis lebih dulu, MRO menjadi (Parkir, ValidasiMixin, LogMixin, ...). Validasi berjalan sebelum log; pembayaran yang ditolak tidak pernah tercatat di log.",
+      "attack": "PembayaranParkir({'saldo': 50_000}, 5_000).proses(); jejak -> ['validasi', 'log', 'debit'].",
+      "fix": "class PembayaranParkir(LogMixin, ValidasiMixin)."
+    },
+    {
+      "id": "B5",
+      "title": "Batas hibah tertimpa constructor base",
+      "location": "PembayaranHibah.__init__",
+      "concept": "urutan inisialisasi: attribute subclass ditimpa super().__init__",
+      "scenario": "self.batas = 50_000_000 di-set SEBELUM super().__init__. ValidasiMixin.__init__ kemudian meng-assign batas = 10_000_000 sehingga override hilang.",
+      "attack": "PembayaranHibah({'saldo': 60_000_000}, 20_000_000).proses() -> ValueError('jumlah di luar batas'); batas -> 10000000.",
+      "fix": "Panggil super().__init__ terlebih dahulu, lalu self.batas = 50_000_000 (atau jadikan batas class attribute yang di-override)."
     }
   ],
   "attack_procedure": [
-    "Cetak Class.__mro__ dan petakan rantai pemanggilan __init__ dan proses.",
-    "Uji jalur gagal (saldo kurang, jumlah negatif) dan periksa apakah saldo berubah.",
-    "Hitung berapa kali 'debit' muncul pada jejak."
+    "Cetak Class.__mro__ setiap jenis pembayaran dan bandingkan dengan spesifikasi.",
+    "Periksa attribute yang seharusnya dibuat oleh setiap __init__ di MRO.",
+    "Uji pembayaran yang melebihi saldo/batas dan periksa saldo sesudahnya.",
+    "Periksa isi jejak untuk mendeteksi langkah yang dilewati, terbalik, atau berulang.",
+    "Uji subclass yang mengubah attribute base (batas) dengan nilai di antara batas lama dan batas baru.",
+    "Tulis regression test dan jelaskan root cause dengan MRO."
   ],
   "rubric_notes": {
-    "attack": "Root cause wajib menyebut MRO / cooperative super(); 'mixin salah' saja belum cukup.",
-    "defense": "Mengubah urutan base class tanpa memperbaiki pemanggilan eksplisit tidak memperbaiki root cause."
+    "attack": "Root cause B1/B2 harus menyebut MRO: 'kelas berikutnya' setelah LogMixin bukan Pembayaran. B5 harus menjelaskan urutan assignment, bukan sekadar 'batas salah'.",
+    "defense": "Patch B1 yang memanggil kedua __init__ secara eksplisit dari subclass dianggap parsial (rawan eksekusi ganda). Patch B4 harus mengubah urutan base class, bukan meng-override proses() di Parkir."
   },
   "concept_map": [
     {"topic": "multiple inheritance", "bug": "B1", "objective": "O2"},
     {"topic": "multiple inheritance", "bug": "B2", "objective": "O1"},
-    {"topic": "base class", "bug": "B3", "objective": "O3"}
+    {"topic": "base class", "bug": "B3", "objective": "O3"},
+    {"topic": "multiple inheritance", "bug": "B4", "objective": "O1"},
+    {"topic": "overriding", "bug": "B5", "objective": "O2"},
+    {"topic": "inheritance", "bug": "B5", "objective": "O2"}
   ]
 }

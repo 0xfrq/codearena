@@ -29,6 +29,11 @@ class Gudang:
             raise ValueError("stok tidak mencukupi")
         self.stok[kode] = tersedia - jumlah
 
+    def pindahkan(self, tujuan, kode, jumlah):
+        """Memindahkan `jumlah` unit barang `kode` dari gudang ini ke gudang `tujuan`."""
+        tujuan.tambah(kode, jumlah)
+        self.ambil(kode, jumlah)
+
     def jumlah_stok(self, kode):
         """Jumlah unit untuk `kode`; barang yang tidak terdaftar bernilai 0."""
         return self.stok[kode]
@@ -36,6 +41,10 @@ class Gudang:
     def jenis_barang(self):
         """Banyaknya jenis barang yang stoknya > 0."""
         return len(self.stok)
+
+    def daftar_barang(self):
+        """Pemetaan kode -> jumlah untuk barang yang tersedia di gudang ini."""
+        return self.stok
 
     def ringkasan(self):
         total = sum(self.stok.values())

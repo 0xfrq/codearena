@@ -142,7 +142,8 @@ class PemrosesPembayaran:
         return hasil
 
     def transfer(self, asal, tujuan, jumlah):
-        biaya = asal.biaya_transfer(jumlah)
+        """Memindahkan `jumlah` dari asal ke tujuan; biaya transfer mengikuti jenis akun ASAL."""
+        biaya = tujuan.biaya_transfer(jumlah)
         asal.tarik(jumlah + biaya)
         tujuan.topup(jumlah)
         return biaya

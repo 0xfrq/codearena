@@ -16,7 +16,7 @@ class MetodePembayaran:
 
     @abstractmethod
     def biaya_admin(self, jumlah):
-        """Biaya admin dalam rupiah untuk transaksi sebesar `jumlah`."""
+        """Biaya admin (int, rupiah) untuk transaksi sebesar `jumlah`."""
 
     @abstractmethod
     def bayar(self, jumlah):
@@ -33,6 +33,10 @@ class Tunai(MetodePembayaran):
 
     def biaya_admin(self, jumlah):
         return 0
+
+    def total_tagihan(self, jumlah):
+        """Tunai tidak dikenai biaya admin."""
+        return jumlah
 
     def bayar(self, jumlah):
         return f"{self.kode} {self.total_tagihan(jumlah)}"
@@ -57,6 +61,18 @@ class QRIS(MetodePembayaran):
 
     def bayar(self):
         return f"{self.kode} {self.total_tagihan(self.jumlah)}"
+
+
+class EWallet(MetodePembayaran):
+    """E-wallet kampus: biaya admin 1% (dibulatkan ke bawah)."""
+
+    kode = "EWALLET"
+
+    def biaya_admin(self, jumlah):
+        return jumlah * 0.01
+
+    def bayar(self, jumlah):
+        return f"{self.kode} {self.total_tagihan(jumlah)}"
 
 
 def proses_semua(daftar_metode, jumlah):

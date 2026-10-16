@@ -4,27 +4,27 @@
   "materi": [5],
   "case": "Metode pembayaran loket administrasi kampus",
   "topics": ["abstract method", "inheritance", "overriding", "derived class"],
-  "summary": "Loket administrasi mendefinisikan kontrak MetodePembayaran. Kontrak ternyata bisa diinstansiasi, Transfer crash saat menghitung tagihan, dan QRIS gagal ketika diproses bersama metode lain.",
+  "summary": "Loket administrasi mendefinisikan kontrak MetodePembayaran. Kontrak ternyata bisa diinstansiasi, Transfer crash saat menghitung tagihan, QRIS gagal ketika diproses bersama metode lain, struk e-wallet mencetak angka desimal seperti '151550.5', dan pembayaran tunai Rp0 atau negatif diterima.",
   "objectives": [
-    "O1: menjelaskan fungsi abstract base class (ABC) dan @abstractmethod sebagai kontrak.",
-    "O2: mengidentifikasi subclass yang belum memenuhi kontrak dan dampaknya saat runtime.",
-    "O3: menjelaskan bahwa ABC hanya memeriksa keberadaan method, bukan signature — sehingga signature tetap tanggung jawab developer."
+    "O1: menjelaskan abstract class (ABC) dan @abstractmethod sebagai kontrak yang ditegakkan saat instansiasi.",
+    "O2: mengimplementasikan seluruh kontrak di setiap derived class, termasuk tipe nilai kembalian yang dijanjikan.",
+    "O3: menjaga kompatibilitas signature dan invariant base class agar polimorfisme tetap aman."
   ],
   "spec": [
     "MetodePembayaran tidak dapat diinstansiasi (TypeError); subclass yang belum mengimplementasikan semua abstract method juga tidak dapat diinstansiasi.",
-    "Setiap metode konkret mengimplementasikan biaya_admin(jumlah) dan bayar(jumlah).",
-    "Biaya admin: Tunai 0, Transfer 2.500 flat, QRIS 0,7% (dibulatkan ke bawah).",
-    "bayar(jumlah) mengembalikan '<KODE> <jumlah + biaya admin>'; jumlah <= 0 ditolak.",
+    "Setiap metode konkret mengimplementasikan biaya_admin(jumlah) -> int dan bayar(jumlah).",
+    "Biaya admin: Tunai 0, Transfer 2.500 flat, QRIS 0,7%, EWallet 1% (persentase dibulatkan ke bawah, hasil int).",
+    "bayar(jumlah) mengembalikan '<KODE> <jumlah + biaya admin>'; jumlah <= 0 ditolak dengan ValueError untuk SEMUA metode.",
     "proses_semua(daftar, jumlah) memanggil bayar(jumlah) pada setiap metode."
   ],
   "bugs": [
     {
       "id": "B1",
       "title": "@abstractmethod tanpa ABC",
-      "location": "class MetodePembayaran:",
+      "location": "class MetodePembayaran",
       "concept": "abstract method membutuhkan ABCMeta",
-      "scenario": "Decorator @abstractmethod hanya menandai fungsi; tanpa ABC/ABCMeta, Python tidak menegakkannya sehingga kontrak dan subclass tidak lengkap dapat diinstansiasi.",
-      "attack": "MetodePembayaran('A') berhasil dibuat; bayar() mengembalikan None.",
+      "scenario": "@abstractmethod hanya menandai fungsi. Tanpa mewarisi ABC (metaclass ABCMeta), Python tidak memeriksa kelengkapan implementasi, sehingga kontrak dan subclass yang belum lengkap tetap bisa dibuat.",
+      "attack": "MetodePembayaran('Ani') -> berhasil dibuat (seharusnya TypeError).",
       "fix": "class MetodePembayaran(ABC)."
     },
     {
@@ -32,32 +32,55 @@
       "title": "Transfer tidak mengimplementasikan biaya_admin",
       "location": "class Transfer",
       "concept": "kewajiban implementasi abstract method",
-      "scenario": "Transfer mewarisi stub abstrak yang mengembalikan None; total_tagihan menjumlahkan int + None.",
-      "attack": "Transfer('A').bayar(100000) -> TypeError: unsupported operand type(s) for +: 'int' and 'NoneType'.",
-      "fix": "Implementasikan biaya_admin yang mengembalikan 2500."
+      "scenario": "Transfer tidak meng-override biaya_admin sehingga memakai badan abstract yang mengembalikan None; total_tagihan crash.",
+      "attack": "Transfer('Cici').bayar(100_000) -> TypeError: unsupported operand type(s) for +: 'int' and 'NoneType'.",
+      "fix": "def biaya_admin(self, jumlah): return 2_500."
     },
     {
       "id": "B3",
       "title": "QRIS melanggar signature kontrak",
       "location": "QRIS.bayar(self)",
       "concept": "kontrak abstract method dan polimorfisme",
-      "scenario": "QRIS.bayar tidak menerima jumlah dan memakai attribute yang tidak ada. ABC tidak memeriksa signature sehingga error baru muncul saat diproses polimorfik.",
-      "attack": "QRIS('A').bayar(100000) -> TypeError; proses_semua([...QRIS...], 10000) crash.",
+      "scenario": "QRIS.bayar tidak menerima jumlah dan membaca self.jumlah yang tidak ada. Kode polimorfik proses_semua(daftar, jumlah) crash.",
+      "attack": "proses_semua([Tunai('Eka'), QRIS('Eka')], 100_000) -> TypeError: bayar() takes 1 positional argument but 2 were given.",
       "fix": "def bayar(self, jumlah): return f'{self.kode} {self.total_tagihan(jumlah)}'."
+    },
+    {
+      "id": "B4",
+      "title": "Biaya admin e-wallet bertipe float",
+      "location": "EWallet.biaya_admin: jumlah * 0.01",
+      "concept": "implementasi abstract method harus memenuhi kontrak tipe nilai kembalian",
+      "scenario": "Kontrak menjanjikan biaya admin integer rupiah yang dibulatkan ke bawah. Perkalian float menghasilkan 1500.5, sehingga total tagihan dan struk mengandung desimal.",
+      "attack": "EWallet('Fani').bayar(150_050) -> 'EWALLET 151550.5'.",
+      "fix": "return jumlah // 100."
+    },
+    {
+      "id": "B5",
+      "title": "Tunai melewati validasi base class",
+      "location": "Tunai.total_tagihan",
+      "concept": "override method konkret di abstract class merusak invariant",
+      "scenario": "total_tagihan di base class menegakkan aturan jumlah > 0. Tunai meng-override-nya untuk 'menghilangkan biaya admin' dan tanpa sadar menghapus validasi.",
+      "attack": "Tunai('Gina').bayar(-5000) -> 'TUNAI -5000' (seharusnya ValueError).",
+      "fix": "Hapus override total_tagihan; biaya 0 sudah diatur oleh biaya_admin."
     }
   ],
   "attack_procedure": [
-    "Coba instansiasi class kontrak dan subclass yang tidak lengkap.",
-    "Panggil setiap metode melalui antarmuka kontrak (bayar(jumlah)).",
-    "Proses beberapa metode sekaligus dengan proses_semua."
+    "Coba instansiasi kontrak dan subclass yang implementasinya tidak lengkap.",
+    "Panggil setiap method kontrak pada setiap metode konkret, termasuk dengan jumlah tidak valid.",
+    "Periksa tipe nilai kembalian (int vs float) dan format string hasil.",
+    "Jalankan proses_semua dengan campuran metode.",
+    "Tulis regression test dan jelaskan root cause dalam istilah kontrak abstract."
   ],
   "rubric_notes": {
-    "attack": "B1 harus menyebut bahwa @abstractmethod tidak berpengaruh tanpa ABC/ABCMeta.",
-    "defense": "Regression test B1 sebaiknya membuktikan bahwa subclass tidak lengkap ditolak, bukan hanya class kontrak."
+    "attack": "B1 harus menyebut peran ABC/ABCMeta, bukan sekadar 'kurang raise NotImplementedError'. B5 harus menunjukkan bahwa invariant yang hilang berasal dari override, bukan dari base class.",
+    "defense": "Patch B1 dengan raise NotImplementedError di __init__ dianggap parsial. Patch B4 dengan int(jumlah * 0.01) diterima tetapi diberi catatan presisi float."
   },
   "concept_map": [
     {"topic": "abstract method", "bug": "B1", "objective": "O1"},
     {"topic": "abstract method", "bug": "B2", "objective": "O2"},
-    {"topic": "overriding", "bug": "B3", "objective": "O3"}
+    {"topic": "overriding", "bug": "B3", "objective": "O3"},
+    {"topic": "derived class", "bug": "B4", "objective": "O2"},
+    {"topic": "overriding", "bug": "B5", "objective": "O3"},
+    {"topic": "inheritance", "bug": "B5", "objective": "O3"}
   ]
 }

@@ -4,18 +4,18 @@
   "materi": [3],
   "case": "Penggajian pegawai kampus",
   "topics": ["class method", "static method", "class attribute", "method"],
-  "summary": "Bagian keuangan mengimpor data dosen dari CSV, tetapi semua hasil impor berubah menjadi Pegawai biasa, perubahan tarif lembur dosen justru mengubah tarif semua pegawai, dan jumlah pegawai tercatat ganda.",
+  "summary": "Bagian keuangan mengimpor data dosen dari CSV, tetapi semua hasil impor berubah menjadi Pegawai biasa, perubahan tarif lembur dosen justru mengubah tarif semua pegawai, jumlah pegawai tercatat ganda (bahkan data yang gagal diimpor ikut terhitung), dan keringanan pajak satpam tidak pernah diterapkan.",
   "objectives": [
     "O1: membedakan instance method, @classmethod (menerima cls), dan @staticmethod (tanpa self/cls).",
     "O2: menggunakan classmethod sebagai alternative constructor (factory) yang menghormati subclass.",
-    "O3: memilih jenis method yang tepat berdasarkan data yang dibutuhkan method tersebut."
+    "O3: memilih jenis method dan cara pemanggilan (Class.method vs self.method / cls.method) yang tepat agar override di turunan tetap berlaku."
   ],
   "spec": [
-    "Pegawai.dari_csv('Nama;gaji') adalah factory; Dosen.dari_csv(...) harus menghasilkan object Dosen.",
-    "Setiap object yang dibuat (langsung atau via factory) menambah Pegawai.jumlah_pegawai tepat 1.",
+    "Pegawai.dari_csv('Nama;gaji') adalah factory; Dosen.dari_csv(...) harus menghasilkan object Dosen (begitu pula Satpam).",
+    "Setiap object yang BERHASIL dibuat (langsung atau via factory) menambah Pegawai.jumlah_pegawai tepat 1; pembuatan yang gagal validasi tidak dihitung.",
     "X.ubah_tarif_lembur(t) mengubah tarif lembur class X saja (dan turunan X yang tidak meng-override).",
-    "Pegawai.pajak(nominal) adalah utilitas statis 5% (dibulatkan ke bawah).",
-    "gaji_bersih(jam_lembur) = (gaji_pokok + jam * tarif_lembur) - pajak."
+    "Pegawai.pajak(nominal) adalah utilitas statis 5% (dibulatkan ke bawah); Satpam.pajak 2%.",
+    "gaji_bersih(jam_lembur) = (gaji_pokok + jam * tarif_lembur) - pajak, memakai aturan pajak jenis pegawai tersebut."
   ],
   "bugs": [
     {
@@ -23,42 +23,65 @@
       "title": "Factory mengabaikan cls",
       "location": "Pegawai.dari_csv",
       "concept": "class method sebagai alternative constructor",
-      "scenario": "Factory memanggil Pegawai(...) secara hardcode sehingga Dosen.dari_csv menghasilkan Pegawai dengan tarif lembur yang salah.",
-      "attack": "type(Dosen.dari_csv('A;7000000')) -> Pegawai; gaji lembur dihitung dengan 50.000/jam.",
-      "fix": "return cls(nama, int(gaji))."
+      "scenario": "Factory menulis Pegawai(...) secara hard-code alih-alih cls(...), sehingga Dosen.dari_csv dan Satpam.dari_csv tetap menghasilkan Pegawai.",
+      "attack": "type(Dosen.dari_csv('Dr. Citra;8000000')) -> Pegawai; tarif lembur 50.000 bukan 75.000.",
+      "fix": "return cls(nama.strip(), int(gaji))."
     },
     {
       "id": "B2",
       "title": "Static method mengubah class yang salah",
       "location": "Pegawai.ubah_tarif_lembur",
       "concept": "static method vs class method",
-      "scenario": "Static method tidak menerima cls sehingga terpaksa menulis Pegawai.tarif_lembur. Memanggilnya via Dosen tetap mengubah Pegawai.",
-      "attack": "Dosen.ubah_tarif_lembur(80_000); Dosen.tarif_lembur -> 75000, Pegawai.tarif_lembur -> 80000.",
-      "fix": "Jadikan @classmethod dan tulis cls.tarif_lembur."
+      "scenario": "Sebagai @staticmethod, method tidak tahu class pemanggilnya, sehingga selalu menulis Pegawai.tarif_lembur. Dosen.ubah_tarif_lembur(90000) mengubah tarif semua pegawai non-dosen.",
+      "attack": "Dosen.ubah_tarif_lembur(90000); Pegawai.tarif_lembur -> 90000; Dosen.tarif_lembur -> 75000.",
+      "fix": "@classmethod def ubah_tarif_lembur(cls, tarif): cls.tarif_lembur = tarif."
     },
     {
       "id": "B3",
-      "title": "Counter pegawai ganda",
+      "title": "Counter pegawai ganda pada factory",
       "location": "Pegawai.dari_csv",
       "concept": "class attribute sebagai state bersama + alur constructor",
-      "scenario": "Factory menaikkan counter padahal __init__ (yang dipanggil factory) sudah menaikkannya.",
-      "attack": "n = Pegawai.jumlah_pegawai; Pegawai.dari_csv('A;1'); Pegawai.jumlah_pegawai - n -> 2.",
-      "fix": "Hapus increment di factory."
+      "scenario": "__init__ sudah menaikkan counter, lalu factory menaikkannya lagi. Setiap impor CSV tercatat sebagai dua pegawai.",
+      "attack": "n = Pegawai.jumlah_pegawai; Dosen.dari_csv('Eka;5000000'); Pegawai.jumlah_pegawai - n -> 2.",
+      "fix": "Hapus increment di factory; biarkan __init__ menjadi satu-satunya titik penghitungan."
+    },
+    {
+      "id": "B4",
+      "title": "Pegawai gagal dibuat tetap dihitung",
+      "location": "Pegawai.__init__",
+      "concept": "class attribute dan urutan efek samping di constructor",
+      "scenario": "Counter dinaikkan di baris pertama __init__, sebelum validasi gaji. Ketika ValueError dilempar, object tidak jadi dibuat tetapi counter sudah bertambah.",
+      "attack": "n = Pegawai.jumlah_pegawai; Pegawai('Fajar', 0) -> ValueError; Pegawai.jumlah_pegawai - n -> 1.",
+      "fix": "Pindahkan Pegawai.jumlah_pegawai += 1 ke akhir __init__ setelah semua validasi."
+    },
+    {
+      "id": "B5",
+      "title": "Keringanan pajak satpam diabaikan",
+      "location": "Pegawai.gaji_bersih: Pegawai.pajak(kotor)",
+      "concept": "pemanggilan static method lewat nama class mematikan override",
+      "scenario": "gaji_bersih memanggil Pegawai.pajak secara eksplisit sehingga Satpam.pajak (2%) tidak pernah dipakai. Static method tetap ikut di-lookup lewat self/cls, jadi override hanya bekerja jika dipanggil melalui self.pajak atau type(self).pajak.",
+      "attack": "Satpam('Hadi', 4000000).gaji_bersih() -> 3800000 (seharusnya 3920000).",
+      "fix": "return kotor - self.pajak(kotor)."
     }
   ],
   "attack_procedure": [
-    "Panggil factory dan method kelas melalui subclass, bukan hanya melalui Pegawai.",
-    "Periksa type(obj) dan nilai class attribute pada Pegawai, Dosen, dan Satpam setelah tiap operasi.",
-    "Hitung perubahan Pegawai.jumlah_pegawai untuk setiap jalur pembuatan object."
+    "Panggil factory melalui SETIAP subclass dan periksa type() hasilnya.",
+    "Ubah tarif melalui subclass, lalu periksa tarif base class dan subclass lain.",
+    "Hitung selisih Pegawai.jumlah_pegawai sebelum/sesudah pembuatan object, termasuk pembuatan yang GAGAL.",
+    "Bandingkan gaji_bersih setiap jenis pegawai dengan aturan pajak masing-masing.",
+    "Tulis regression test dan jelaskan perbedaan self/cls/tanpa keduanya."
   ],
   "rubric_notes": {
-    "attack": "Root cause B2 harus menyebut bahwa staticmethod tidak menerima cls sehingga tidak bisa polimorfik terhadap class pemanggil.",
-    "defense": "Regression test harus memanggil method melalui subclass dan mengembalikan state class attribute setelah test."
+    "attack": "B2 harus menjelaskan mengapa staticmethod tidak bisa mengetahui class pemanggil. B5 harus menjelaskan bahwa Pegawai.pajak(...) memilih implementasi secara statis, bukan berdasarkan object.",
+    "defense": "Patch B1 dengan if cls is Dosen: ... (if-else per subclass) dianggap parsial. Regression test B4 harus memicu kegagalan validasi lalu memeriksa counter."
   },
   "concept_map": [
     {"topic": "class method", "bug": "B1", "objective": "O2"},
     {"topic": "static method", "bug": "B2", "objective": "O1"},
     {"topic": "class method", "bug": "B2", "objective": "O3"},
-    {"topic": "class attribute", "bug": "B3", "objective": "O3"}
+    {"topic": "class attribute", "bug": "B3", "objective": "O3"},
+    {"topic": "class attribute", "bug": "B4", "objective": "O3"},
+    {"topic": "static method", "bug": "B5", "objective": "O3"},
+    {"topic": "method", "bug": "B5", "objective": "O1"}
   ]
 }

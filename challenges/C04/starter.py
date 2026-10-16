@@ -1,7 +1,7 @@
 """C04 — Method Dispatch Failure
 
 Modul penggajian kampus. Data pegawai diimpor dari file CSV sederhana
-("Nama;gaji_pokok") dan setiap jenis pegawai memiliki tarif lembur sendiri.
+("Nama;gaji_pokok") dan setiap jenis pegawai memiliki tarif lembur dan aturan pajak sendiri.
 """
 
 
@@ -10,11 +10,11 @@ class Pegawai:
     jumlah_pegawai = 0      # total object pegawai (semua jenis)
 
     def __init__(self, nama, gaji_pokok):
+        Pegawai.jumlah_pegawai += 1
         if gaji_pokok <= 0:
             raise ValueError("gaji pokok harus positif")
         self.nama = nama
         self.gaji_pokok = gaji_pokok
-        Pegawai.jumlah_pegawai += 1
 
     @classmethod
     def dari_csv(cls, baris):
@@ -38,7 +38,7 @@ class Pegawai:
 
     def gaji_bersih(self, jam_lembur=0):
         kotor = self.gaji_pokok + jam_lembur * self.tarif_lembur
-        return kotor - self.pajak(kotor)
+        return kotor - Pegawai.pajak(kotor)
 
 
 class Dosen(Pegawai):
@@ -46,4 +46,8 @@ class Dosen(Pegawai):
 
 
 class Satpam(Pegawai):
-    pass  # memakai tarif lembur Pegawai
+    """Satpam memakai tarif lembur Pegawai, tetapi mendapat keringanan pajak 2%."""
+
+    @staticmethod
+    def pajak(nominal):
+        return nominal * 2 // 100

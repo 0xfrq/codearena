@@ -1,10 +1,11 @@
 """C06 — Broken Function Wrapper (reference solution)
 
 Perbaikan:
-- B1: catat_panggilan meneruskan *args DAN **kwargs.
-- B2: hitung_peminjaman menambah statistik SETELAH fungsi di dalam rantai berhasil
-      (sehingga penolakan oleh wajib_anggota / batas_durasi tidak terhitung).
-- B3: batas_durasi membaca durasi dari argumen posisi maupun keyword dengan inspect.signature.
+- B1: catat_panggilan menerima dan meneruskan *args DAN **kwargs.
+- B2: statistik dinaikkan SETELAH func (validasi di lapisan dalam) berhasil.
+- B3: batas_durasi membaca durasi dari posisi maupun keyword dengan inspect.signature.bind.
+- B4: durasi tidak di-pop dari kwargs; argumen diteruskan apa adanya.
+- B5: catat_panggilan mencatat SEBELUM memanggil func sehingga pemanggilan gagal juga tercatat.
 """
 
 import functools
@@ -16,7 +17,7 @@ LOG_PANGGILAN = []
 def catat_panggilan(func):
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
-        LOG_PANGGILAN.append((func.__name__, args))
+        LOG_PANGGILAN.append((func.__name__, args, kwargs))
         return func(self, *args, **kwargs)
 
     return wrapper
@@ -44,13 +45,14 @@ def wajib_anggota(func):
 
 def batas_durasi(maks):
     def decorator(func):
-        signature = inspect.signature(func)
+        sig = inspect.signature(func)
 
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
-            bound = signature.bind(self, *args, **kwargs)
+            bound = sig.bind(self, *args, **kwargs)
             bound.apply_defaults()
-            if bound.arguments["durasi"] > maks:
+            durasi = bound.arguments["durasi"]
+            if durasi > maks:
                 raise ValueError(f"durasi maksimal {maks} hari")
             return func(self, *args, **kwargs)
 

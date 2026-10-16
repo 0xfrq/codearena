@@ -36,17 +36,35 @@ class Dosen(Civitas):
         self.nidn = nidn
 
 
+class DosenTamu(Dosen):
+    prefix = "DTM"
+
+    def __init__(self, nama, nomor, nidn, asal_kampus):
+        super().__init__(nama, nomor, nidn)
+        self.asal_kampus = asal_kampus
+
+
 class Mahasiswa(Civitas):
     prefix = "MHS"
 
     def __init__(self, nama, nomor, prodi):
-        super().__init__(nomor, nama)
+        super().__init__(nama, nomor)
         self.prodi = prodi
+        self.status_studi = "aktif"
+
+    def nonaktifkan(self):
+        """Mahasiswa yang dinonaktifkan berstatus studi 'cuti'."""
+        self.status_studi = "cuti"
 
 
 class Tendik(Civitas):
     prefix = "TDK"
 
     def __init__(self, nama, nomor, unit):
-        super().__init__(nama, nomor)
+        super().__init__(unit, nomor)
         self.unit = unit
+
+
+def hanya_dosen(daftar):
+    """Semua civitas yang merupakan dosen (termasuk jenis dosen turunan), urutan dipertahankan."""
+    return [c for c in daftar if type(c) is Dosen]

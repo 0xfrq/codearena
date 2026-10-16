@@ -4,18 +4,20 @@
   "materi": [4],
   "case": "Kartu identitas civitas akademika",
   "topics": ["inheritance", "base class", "derived class", "akses attribute & method"],
-  "summary": "Semua kartu identitas kampus dibuat dari hierarki class Civitas. Kartu dosen gagal dicetak karena attribute hilang, semua kartu berawalan 'CIV', dan data mahasiswa tertukar.",
+  "summary": "Semua kartu identitas kampus dibuat dari hierarki class Civitas. Kartu dosen gagal dicetak karena attribute hilang, semua kartu berawalan 'CIV', nama tendik berisi nama unit, mahasiswa yang dinonaktifkan masih tercetak aktif, dan dosen tamu tidak muncul di daftar dosen.",
   "objectives": [
-    "O1: menjelaskan hubungan base class dan derived class serta pewarisan attribute/method.",
-    "O2: memanggil constructor parent dengan super().__init__ secara benar.",
-    "O3: menjelaskan lookup attribute melalui self vs melalui nama class pada konteks inheritance."
+    "O1: menjelaskan hubungan is-a antara base class dan derived class, termasuk pewarisan bertingkat.",
+    "O2: memastikan derived class menginisialisasi bagian base class dengan benar (super().__init__ dengan argumen yang tepat).",
+    "O3: memahami lookup attribute/method pada inheritance dan cara memperluas (bukan mengganti) perilaku base class."
   ],
   "spec": [
     "Semua civitas memiliki nama, nomor (> 0), dan aktif=True setelah dibuat.",
-    "kartu() mengembalikan '<PREFIX>-<nomor 4 digit>' dengan PREFIX milik class konkret (CIV/DSN/MHS/TDK).",
-    "Dosen(nama, nomor, nidn), Mahasiswa(nama, nomor, prodi), Tendik(nama, nomor, unit).",
+    "kartu() mengembalikan '<PREFIX>-<nomor 4 digit>' dengan PREFIX milik class konkret (CIV/DSN/DTM/MHS/TDK).",
+    "Dosen(nama, nomor, nidn), DosenTamu(nama, nomor, nidn, asal_kampus) turunan Dosen, Mahasiswa(nama, nomor, prodi), Tendik(nama, nomor, unit).",
     "Validasi nomor di base class juga berlaku untuk semua turunan.",
-    "profil() mengembalikan '<kartu> <nama> (aktif|nonaktif)'."
+    "nonaktifkan() membuat aktif=False untuk semua civitas; khusus Mahasiswa, status_studi juga menjadi 'cuti'.",
+    "profil() mengembalikan '<kartu> <nama> (aktif|nonaktif)'.",
+    "hanya_dosen(daftar) mengembalikan semua civitas yang merupakan dosen, termasuk turunan Dosen, dengan urutan dipertahankan."
   ],
   "bugs": [
     {
@@ -23,42 +25,65 @@
       "title": "Constructor dosen tidak memanggil parent",
       "location": "Dosen.__init__",
       "concept": "derived class wajib menginisialisasi bagian base class",
-      "scenario": "Dosen.__init__ menimpa constructor parent tanpa super().__init__, sehingga nama, nomor, aktif tidak pernah dibuat dan validasi nomor tidak berjalan.",
-      "attack": "Dosen('Bu Rina', 12, '001').profil() -> AttributeError: 'Dosen' object has no attribute 'aktif'.",
-      "fix": "super().__init__(nama, nomor) di awal constructor."
+      "scenario": "Dosen.__init__ meng-override constructor Civitas tanpa super().__init__, sehingga nama/nomor/aktif tidak pernah dibuat dan validasi nomor dilewati. Masalah ikut diwarisi DosenTamu.",
+      "attack": "Dosen('Budi', 7, '001').profil() -> AttributeError: 'Dosen' object has no attribute 'aktif'; Dosen('Citra', 0, '0099') tidak ditolak.",
+      "fix": "super().__init__(nama, nomor) di awal Dosen.__init__."
     },
     {
       "id": "B2",
       "title": "Prefix kartu selalu milik base class",
-      "location": "Civitas.kartu",
+      "location": "Civitas.kartu: Civitas.prefix",
       "concept": "lookup attribute pada inheritance (self.prefix vs Civitas.prefix)",
-      "scenario": "Method base membaca Civitas.prefix secara eksplisit sehingga class attribute turunan diabaikan.",
-      "attack": "Tendik('Joko', 3, 'BAAK').kartu() -> 'CIV-0003'.",
-      "fix": "Gunakan self.prefix (atau type(self).prefix)."
+      "scenario": "kartu() membaca Civitas.prefix secara eksplisit sehingga override prefix di derived class tidak pernah dipakai.",
+      "attack": "Mahasiswa('Ani', 42, 'TI').kartu() -> 'CIV-0042' (seharusnya 'MHS-0042').",
+      "fix": "Gunakan self.prefix."
     },
     {
       "id": "B3",
-      "title": "Argumen constructor parent tertukar",
-      "location": "Mahasiswa.__init__",
-      "concept": "pemanggilan constructor base class",
-      "scenario": "super().__init__(nomor, nama) menukar posisi argumen sehingga nama berisi angka dan nomor berisi string (validasi bahkan bisa crash).",
-      "attack": "Mahasiswa('Ani', 5, 'IF') -> TypeError (perbandingan str <= int) atau data tertukar.",
+      "title": "Argumen constructor parent tertukar pada Tendik",
+      "location": "Tendik.__init__: super().__init__(unit, nomor)",
+      "concept": "pemanggilan constructor base class dengan argumen yang benar",
+      "scenario": "Tendik meneruskan `unit` sebagai parameter nama ke Civitas, sehingga attribute nama berisi nama unit kerja.",
+      "attack": "Tendik('Sari', 5, 'BAAK').nama -> 'BAAK'; profil -> 'TDK-0005 BAAK (aktif)'.",
       "fix": "super().__init__(nama, nomor)."
+    },
+    {
+      "id": "B4",
+      "title": "Mahasiswa nonaktif masih tercatat aktif",
+      "location": "Mahasiswa.nonaktifkan",
+      "concept": "memperluas method base class: override tanpa super() mengganti seluruh perilaku",
+      "scenario": "Override nonaktifkan() di Mahasiswa hanya mengubah status_studi dan tidak memanggil versi base, sehingga aktif tetap True.",
+      "attack": "m = Mahasiswa('Eka', 9, 'SI'); m.nonaktifkan(); m.aktif -> True; m.profil() -> '... (aktif)'.",
+      "fix": "super().nonaktifkan() lalu self.status_studi = 'cuti'."
+    },
+    {
+      "id": "B5",
+      "title": "Dosen tamu tidak dianggap dosen",
+      "location": "hanya_dosen: type(c) is Dosen",
+      "concept": "hubungan is-a: isinstance vs pemeriksaan type yang persis",
+      "scenario": "type(c) is Dosen hanya cocok dengan class Dosen persis. DosenTamu adalah Dosen (derived class) tetapi tersaring keluar.",
+      "attack": "hanya_dosen([Dosen(...), DosenTamu(...)]) -> hanya berisi Dosen.",
+      "fix": "isinstance(c, Dosen)."
     }
   ],
   "attack_procedure": [
-    "Buat object dari setiap class turunan dan panggil seluruh method base.",
-    "Periksa vars(obj) untuk memastikan attribute dari base class terbentuk.",
-    "Bandingkan output kartu() setiap jenis civitas dengan spesifikasi prefix."
+    "Buat object dari SETIAP class turunan (termasuk turunan bertingkat) dan panggil semua method publik.",
+    "Bandingkan attribute hasil constructor dengan argumen yang diberikan.",
+    "Uji validasi base class melalui setiap subclass.",
+    "Panggil method yang di-override lalu periksa apakah efek dari versi base tetap terjadi.",
+    "Uji fungsi yang memfilter berdasarkan jenis dengan object turunan.",
+    "Tulis regression test dan jelaskan root cause dalam istilah inheritance."
   ],
   "rubric_notes": {
-    "attack": "Root cause B2 harus menjelaskan mengapa Civitas.prefix tidak polimorfik.",
-    "defense": "Patch B1 tidak boleh menyalin isi constructor parent ke Dosen (duplikasi) — gunakan super()."
+    "attack": "B1 harus menyebut bahwa override __init__ tanpa super() melewati inisialisasi base. B5 harus menjelaskan perbedaan isinstance dan type() is.",
+    "defense": "Patch B1 yang menyalin isi Civitas.__init__ ke Dosen (copy-paste) dianggap parsial. Patch B4 yang meng-assign self.aktif = False langsung (tanpa super) diterima tetapi diberi catatan."
   },
   "concept_map": [
     {"topic": "derived class", "bug": "B1", "objective": "O2"},
     {"topic": "base class", "bug": "B2", "objective": "O3"},
     {"topic": "inheritance", "bug": "B2", "objective": "O1"},
-    {"topic": "derived class", "bug": "B3", "objective": "O2"}
+    {"topic": "derived class", "bug": "B3", "objective": "O2"},
+    {"topic": "akses attribute & method", "bug": "B4", "objective": "O3"},
+    {"topic": "inheritance", "bug": "B5", "objective": "O1"}
   ]
 }

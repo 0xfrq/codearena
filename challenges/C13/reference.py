@@ -7,6 +7,8 @@ Perbaikan:
 - B3 (materi 3): decorator @catat mencatat SETELAH operasi berhasil.
 - B4 (materi 5): Transaksi frozen dan property riwayat mengembalikan tuple.
 - B5 (materi 5): PemrosesPembayaran memeriksa perilaku (Protocol DapatMembayar), bukan class Akun.
+- B6 (materi 4): biaya transfer ditanyakan ke akun ASAL (polimorfisme pada object yang tepat).
+- B7 (materi 1): transfer memvalidasi jumlah sebelum ada saldo yang dipotong.
 """
 
 import functools
@@ -131,6 +133,8 @@ class PemrosesPembayaran:
         return hasil
 
     def transfer(self, asal, tujuan, jumlah):
+        if jumlah <= 0:
+            raise ValueError("jumlah harus positif")
         biaya = asal.biaya_transfer(jumlah)
         asal.tarik(jumlah + biaya)
         tujuan.topup(jumlah)

@@ -4,17 +4,18 @@
   "materi": [3],
   "case": "Kasir koperasi mahasiswa",
   "topics": ["decorator", "custom decorator", "chaining decorator"],
-  "summary": "Koperasi memakai decorator buatan sendiri untuk validasi dan audit. Kasir mengeluh nilai saldo dari method selalu None, audit log berisi entri 'wrapper' yang muncul bahkan sebelum ada transaksi, dan jumlah entri log tidak sesuai jumlah transaksi.",
+  "summary": "Koperasi memakai decorator buatan sendiri untuk validasi, kuota, dan audit. Kasir mengeluh nilai saldo dari method selalu None, audit log berisi entri yang muncul bahkan sebelum ada transaksi, nama method berubah menjadi 'wrapper', kuota kembalian satu kasir menghabiskan kuota kasir lain, dan kembalian yang gagal ikut memotong kuota.",
   "objectives": [
-    "O1: menjelaskan decorator sebagai fungsi yang menerima fungsi dan mengembalikan fungsi baru.",
-    "O2: membedakan kode yang berjalan saat decorator DITERAPKAN dan kode yang berjalan saat fungsi DIPANGGIL.",
-    "O3: membuat custom decorator yang benar: meneruskan argumen, mengembalikan hasil, dan menjaga metadata (functools.wraps)."
+    "O1: menjelaskan decorator sebagai fungsi yang menerima fungsi dan mengembalikan fungsi baru, termasuk decorator berparameter (decorator factory).",
+    "O2: membedakan kode yang berjalan saat decorator DITERAPKAN (sekali per definisi) dan kode yang berjalan saat fungsi DIPANGGIL (per pemanggilan, per object).",
+    "O3: membuat custom decorator yang benar: meneruskan argumen, mengembalikan hasil, menjaga metadata (functools.wraps), dan menempatkan efek samping setelah operasi berhasil."
   ],
   "spec": [
     "terima_pembayaran(nominal) dan beri_kembalian(nominal) mengembalikan saldo kas terbaru.",
     "nominal <= 0 ditolak (ValueError) sebelum operasi berjalan.",
-    "AUDIT_LOG mendapat tepat satu entri berisi nama method untuk setiap pemanggilan yang BERHASIL.",
-    "Operasi yang gagal tidak dicatat.",
+    "AUDIT_LOG mendapat tepat satu entri berisi nama method untuk setiap pemanggilan yang BERHASIL; operasi yang gagal tidak dicatat.",
+    "Setiap kasir (object) hanya boleh memberi kembalian 3 kali BERHASIL per hari; pemanggilan ke-4 ditolak dengan PermissionError. Kuota satu kasir tidak memengaruhi kasir lain.",
+    "Pemanggilan yang gagal (nominal tidak valid atau kas tidak cukup) tidak mengurangi kuota.",
     "Method yang didekorasi tetap memiliki __name__ dan __doc__ aslinya."
   ],
   "bugs": [
@@ -23,42 +24,65 @@
       "title": "Wrapper menelan nilai kembalian",
       "location": "nominal_positif.wrapper",
       "concept": "custom decorator: meneruskan return value",
-      "scenario": "wrapper memanggil func(...) tanpa return sehingga semua method yang didekorasi mengembalikan None.",
+      "scenario": "wrapper memanggil func(...) tanpa return sehingga semua method yang didekorasi mengembalikan None walaupun operasinya berjalan.",
       "attack": "KasirKoperasi(2000).terima_pembayaran(3000) -> None (seharusnya 5000).",
       "fix": "return func(self, nominal, *args, **kwargs)."
     },
     {
       "id": "B2",
       "title": "Audit dicatat saat definisi class, bukan saat pemanggilan",
-      "location": "catat_transaksi (AUDIT_LOG.append di luar wrapper)",
+      "location": "catat_transaksi (badan decorator)",
       "concept": "waktu eksekusi decorator",
-      "scenario": "Badan decorator dieksekusi sekali ketika class didefinisikan. Pemanggilan method berikutnya tidak menambah log.",
-      "attack": "AUDIT_LOG.clear(); k.terima_pembayaran(5000) dua kali; len(AUDIT_LOG) -> 0.",
-      "fix": "Pindahkan append ke dalam wrapper setelah func berhasil."
+      "scenario": "AUDIT_LOG.append ditulis di badan decorator, yang berjalan SEKALI saat class didefinisikan. Pemanggilan method sesudahnya tidak pernah tercatat.",
+      "attack": "AUDIT_LOG.clear(); k.terima_pembayaran(1000); AUDIT_LOG -> [] (seharusnya ['terima_pembayaran']).",
+      "fix": "Pindahkan append ke dalam wrapper, SETELAH func berhasil dijalankan."
     },
     {
       "id": "B3",
       "title": "Metadata fungsi hilang",
-      "location": "kedua decorator (tanpa functools.wraps)",
+      "location": "semua wrapper",
       "concept": "custom decorator dan identitas fungsi",
-      "scenario": "Fungsi hasil dekorasi bernama 'wrapper' dan kehilangan docstring sehingga audit log dan dokumentasi salah.",
-      "attack": "KasirKoperasi.terima_pembayaran.__name__ -> 'wrapper'.",
-      "fix": "Dekorasi wrapper dengan @functools.wraps(func)."
+      "scenario": "Tanpa functools.wraps, __name__ dan __doc__ method diganti milik wrapper. Dokumentasi dan alat introspeksi melihat 'wrapper' tanpa docstring.",
+      "attack": "KasirKoperasi.beri_kembalian.__name__ -> 'wrapper'; __doc__ -> None.",
+      "fix": "Gunakan @functools.wraps(func) pada setiap wrapper (termasuk di dalam decorator factory)."
+    },
+    {
+      "id": "B4",
+      "title": "Kuota kembalian dibagi semua kasir",
+      "location": "batasi_harian: terpakai di closure",
+      "concept": "state di closure decorator dibuat sekali per definisi method, bukan per object",
+      "scenario": "Variabel `terpakai` hidup di closure decorator yang dibuat sekali ketika class didefinisikan, sehingga semua object KasirKoperasi berbagi satu counter.",
+      "attack": "k1 memberi kembalian 3x; k2.beri_kembalian(100) -> PermissionError padahal k2 belum bertransaksi.",
+      "fix": "Simpan kuota di object (mis. vars(self).setdefault('_kuota_terpakai', {})) yang dikunci per nama method."
+    },
+    {
+      "id": "B5",
+      "title": "Kembalian yang gagal ikut memotong kuota",
+      "location": "batasi_harian.wrapper",
+      "concept": "chaining decorator dan urutan efek samping",
+      "scenario": "Counter dinaikkan SEBELUM func dipanggil. Jika fungsi di dalam rantai gagal (nominal tidak valid dari @nominal_positif atau kas tidak cukup), kuota sudah terpakai.",
+      "attack": "k = KasirKoperasi(0); 3x beri_kembalian(100) -> ValueError; terima_pembayaran(1000); beri_kembalian(100) -> PermissionError.",
+      "fix": "Panggil func lebih dulu, lalu naikkan counter hanya jika tidak ada exception."
     }
   ],
   "attack_procedure": [
-    "Bandingkan nilai kembalian method dengan spesifikasi.",
-    "Bersihkan AUDIT_LOG lalu lakukan sejumlah transaksi; bandingkan jumlah entri.",
-    "Periksa __name__ dan __doc__ method yang sudah didekorasi."
+    "Periksa nilai kembalian setiap method yang didekorasi.",
+    "Kosongkan AUDIT_LOG lalu lakukan beberapa transaksi (berhasil dan gagal); bandingkan isinya.",
+    "Periksa __name__ dan __doc__ method.",
+    "Buat DUA kasir dan habiskan kuota salah satunya.",
+    "Picu kegagalan di dalam rantai decorator, lalu cek apakah efek samping (kuota, log) tetap terjadi.",
+    "Tulis regression test dan jelaskan kapan setiap baris decorator dieksekusi."
   ],
   "rubric_notes": {
-    "attack": "Laporan B2 yang kuat menjelaskan bahwa isi AUDIT_LOG sudah terisi ketika modul di-import.",
-    "defense": "Patch harus menjaga urutan: validasi -> operasi -> pencatatan."
+    "attack": "B2 dan B4 harus dijelaskan dengan konsep 'decorator dijalankan sekali saat definisi'. B5 harus menyebut urutan efek samping dalam rantai decorator.",
+    "defense": "Patch B3 yang hanya meng-assign wrapper.__name__ tanpa __doc__ dianggap parsial. Patch B4 yang me-reset counter global secara manual tidak menyelesaikan root cause."
   },
   "concept_map": [
-    {"topic": "decorator", "bug": "B2", "objective": "O2"},
     {"topic": "custom decorator", "bug": "B1", "objective": "O3"},
+    {"topic": "decorator", "bug": "B2", "objective": "O2"},
     {"topic": "custom decorator", "bug": "B3", "objective": "O3"},
-    {"topic": "chaining decorator", "bug": "B3", "objective": "O1"}
+    {"topic": "chaining decorator", "bug": "B3", "objective": "O1"},
+    {"topic": "decorator", "bug": "B4", "objective": "O2"},
+    {"topic": "chaining decorator", "bug": "B5", "objective": "O3"}
   ]
 }

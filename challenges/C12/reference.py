@@ -1,11 +1,11 @@
 """C12 — The Missing Behavior (reference solution)
 
 Perbaikan:
-- B1: ekspor_semua memakai duck typing (cek perilaku), bukan isinstance terhadap LaporanBase,
-      dan menolak objek yang tidak exportable dengan TypeError.
-- B2: Exportable diberi @runtime_checkable; bisa_diekspor juga memastikan export callable
-      (runtime protocol check hanya memeriksa keberadaan attribute).
-- B3: StrukKantin mengimplementasikan export() sebagai method.
+- B1: ekspor_semua memeriksa PERILAKU (bisa_diekspor), bukan hierarki class; objek tanpa export() ditolak TypeError.
+- B2: Exportable diberi @runtime_checkable sehingga dapat dipakai dengan isinstance.
+- B3: StrukKantin.export adalah method, bukan string data.
+- B4: bisa_diekspor juga memastikan export dapat dipanggil (runtime_checkable hanya memeriksa keberadaan nama).
+- B5: ekspor_semua menerima iterable apa pun (tuple, generator), bukan hanya list.
 """
 
 from typing import Protocol, runtime_checkable
@@ -55,6 +55,6 @@ def ekspor_semua(dokumen):
     hasil = []
     for d in dokumen:
         if not bisa_diekspor(d):
-            raise TypeError(f"{type(d).__name__} tidak memiliki perilaku export()")
+            raise TypeError(f"objek {type(d).__name__} tidak dapat diekspor")
         hasil.append(d.export())
     return hasil

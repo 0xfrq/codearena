@@ -4,17 +4,17 @@
   "materi": [3],
   "case": "Peminjaman buku perpustakaan kampus",
   "topics": ["chaining decorator", "*args & **kwargs", "custom decorator", "decorator"],
-  "summary": "Layanan perpustakaan merangkai empat decorator pada method pinjam(). Pustakawan menemukan peminjaman dengan keyword argument selalu error, statistik peminjaman naik walaupun peminjaman ditolak, dan batas durasi 14 hari bisa dilewati.",
+  "summary": "Layanan perpustakaan merangkai empat decorator pada method pinjam(). Pustakawan menemukan peminjaman dengan keyword argument selalu error, statistik peminjaman naik walaupun peminjaman ditolak, batas durasi 14 hari bisa dilewati, durasi yang dikirim lewat keyword selalu tersimpan 7 hari, dan peminjaman yang ditolak tidak pernah muncul di log.",
   "objectives": [
-    "O1: menjelaskan urutan eksekusi decorator yang dirangkai (bawah diterapkan dulu, atas dieksekusi dulu).",
-    "O2: menulis wrapper generik dengan *args dan **kwargs yang meneruskan semua argumen.",
-    "O3: menulis decorator berparameter (decorator factory) yang tidak bergantung pada cara argumen dikirim."
+    "O1: menjelaskan urutan eksekusi decorator yang dirangkai (luar ke dalam saat dipanggil, dalam ke luar saat diterapkan) dan posisi efek samping di dalamnya.",
+    "O2: menulis wrapper generik dengan *args dan **kwargs yang meneruskan SEMUA argumen tanpa mengubahnya.",
+    "O3: membuat decorator berparameter yang membaca argumen secara benar, baik dikirim sebagai posisi maupun keyword."
   ],
   "spec": [
-    "pinjam(member, judul, durasi=7) harus dapat dipanggil dengan argumen posisi, keyword, atau campuran.",
-    "Non-anggota ditolak dengan PermissionError; durasi > 14 ditolak dengan ValueError — baik durasi dikirim sebagai posisi maupun keyword.",
+    "pinjam(member, judul, durasi=7) harus dapat dipanggil dengan argumen posisi, keyword, atau campuran; nilai durasi yang dikirim harus tersimpan apa adanya.",
+    "Non-anggota ditolak dengan PermissionError; durasi > 14 ditolak dengan ValueError, baik durasi dikirim sebagai posisi maupun keyword.",
     "statistik hanya bertambah untuk peminjaman yang berhasil.",
-    "LOG_PANGGILAN mencatat setiap pemanggilan pinjam (berhasil maupun gagal).",
+    "LOG_PANGGILAN mencatat (nama, args, kwargs) untuk SETIAP pemanggilan pinjam, berhasil maupun gagal, sesuai urutan pemanggilan.",
     "Perpustakaan.pinjam.__name__ tetap 'pinjam'."
   ],
   "bugs": [
@@ -23,42 +23,65 @@
       "title": "Wrapper luar membuang **kwargs",
       "location": "catat_panggilan.wrapper(self, *args)",
       "concept": "*args dan **kwargs pada decorator",
-      "scenario": "Signature wrapper tidak menerima keyword argument sehingga pemanggilan dengan durasi=... gagal sebelum mencapai fungsi asli.",
-      "attack": "p.pinjam('25032014006', 'X', durasi=10) -> TypeError: unexpected keyword argument.",
-      "fix": "def wrapper(self, *args, **kwargs): return func(self, *args, **kwargs)."
+      "scenario": "Wrapper terluar hanya menerima *args. Setiap pemanggilan dengan keyword argument gagal dengan TypeError sebelum masuk ke decorator lain, dan kwargs tidak pernah tercatat di log.",
+      "attack": "p.pinjam('A01', judul='SICP') -> TypeError: wrapper() got an unexpected keyword argument 'judul'.",
+      "fix": "def wrapper(self, *args, **kwargs): ... func(self, *args, **kwargs); catat juga kwargs."
     },
     {
       "id": "B2",
       "title": "Statistik dihitung sebelum validasi di dalam rantai",
-      "location": "@hitung_peminjaman (urutan chaining / posisi increment)",
+      "location": "hitung_peminjaman.wrapper",
       "concept": "chaining decorator dan urutan eksekusi",
-      "scenario": "hitung_peminjaman berada di luar wajib_anggota dan batas_durasi serta menaikkan statistik SEBELUM memanggil fungsi di dalamnya, sehingga peminjaman yang ditolak tetap terhitung.",
-      "attack": "p.pinjam('bukan-anggota', 'X') -> PermissionError, tetapi p.statistik menjadi 1.",
-      "fix": "Naikkan statistik setelah func berhasil (atau ubah urutan decorator dengan benar)."
+      "scenario": "@hitung_peminjaman berada di luar @wajib_anggota dan @batas_durasi, dan menaikkan statistik SEBELUM memanggil func. Validasi di lapisan dalam baru berjalan setelahnya, jadi peminjaman yang ditolak tetap terhitung.",
+      "attack": "p.pinjam('X99', 'Refactoring') -> PermissionError, tetapi p.statistik -> 1.",
+      "fix": "hasil = func(...); self.statistik += 1; return hasil."
     },
     {
       "id": "B3",
       "title": "Batas durasi hanya membaca kwargs",
-      "location": "batas_durasi.decorator.wrapper",
+      "location": "batas_durasi.wrapper",
       "concept": "*args dan **kwargs pada decorator berparameter",
-      "scenario": "Durasi dicari hanya di kwargs; jika durasi dikirim sebagai argumen posisi ketiga, nilai default 7 yang diperiksa.",
-      "attack": "p.pinjam('25032014005', 'TAOCP', 30) diterima dengan durasi 30 hari.",
-      "fix": "Gunakan inspect.signature(func).bind(...) atau normalisasi argumen sebelum validasi."
+      "scenario": "durasi hanya dicari di kwargs. Jika dikirim sebagai argumen posisi ke-3, wrapper memakai default 7 sehingga durasi 30 lolos.",
+      "attack": "p.pinjam('A01', 'Design Patterns', 30) -> berhasil (seharusnya ValueError).",
+      "fix": "Gunakan inspect.signature(func).bind(self, *args, **kwargs) + apply_defaults() untuk membaca durasi."
+    },
+    {
+      "id": "B4",
+      "title": "Durasi keyword dibuang dari argumen",
+      "location": "batas_durasi.wrapper: kwargs.pop('durasi', 7)",
+      "concept": "wrapper tidak boleh mengubah argumen yang diteruskan",
+      "scenario": "pop() MENGHAPUS durasi dari kwargs setelah dibaca, sehingga func dipanggil tanpa durasi dan memakai default 7. Validasi lolos tetapi data yang tersimpan salah.",
+      "attack": "p.pinjam('A01', 'Pragmatic Programmer', durasi=10); p.peminjaman -> [('A01', 'Pragmatic Programmer', 7)].",
+      "fix": "Baca tanpa mengubah (kwargs.get / signature.bind) dan teruskan kwargs apa adanya."
+    },
+    {
+      "id": "B5",
+      "title": "Pemanggilan gagal tidak tercatat di log",
+      "location": "catat_panggilan.wrapper",
+      "concept": "posisi efek samping dalam custom decorator",
+      "scenario": "Log ditulis SETELAH func selesai. Bila func melempar exception (non-anggota, durasi berlebih), baris append tidak pernah dijalankan, padahal log harus merekam semua percobaan peminjaman.",
+      "attack": "LOG_PANGGILAN.clear(); p.pinjam('X99', 'Refactoring') -> PermissionError; LOG_PANGGILAN -> [].",
+      "fix": "Catat sebelum memanggil func (atau di blok finally)."
     }
   ],
   "attack_procedure": [
-    "Gambar urutan wrapper dari luar ke dalam berdasarkan posisi decorator.",
-    "Panggil pinjam() dengan argumen posisi, keyword, dan campuran.",
-    "Amati efek samping (statistik, log) untuk pemanggilan yang ditolak."
+    "Panggil pinjam dengan kombinasi argumen posisi, keyword, dan campuran.",
+    "Untuk setiap jalur gagal (non-anggota, durasi berlebih), periksa statistik dan LOG_PANGGILAN.",
+    "Bandingkan data yang tersimpan di p.peminjaman dengan argumen yang dikirim.",
+    "Telusuri urutan rantai decorator dari luar ke dalam.",
+    "Tulis regression test yang memakai argumen posisi DAN keyword."
   ],
   "rubric_notes": {
-    "attack": "Laporan B2 harus menjelaskan urutan eksekusi wrapper, bukan hanya 'statistik salah'.",
-    "defense": "Patch B3 yang menolak semua argumen posisi tidak sesuai spesifikasi."
+    "attack": "B2 dan B5 harus menjelaskan posisi efek samping relatif terhadap pemanggilan func dalam rantai. B4 harus membedakan 'validasi lolos' dari 'data tersimpan salah'.",
+    "defense": "Patch B3 yang hanya menambahkan args[2] tanpa menangani keyword dianggap parsial. Patch B1 harus meneruskan kwargs ke func, bukan sekadar menerimanya."
   },
   "concept_map": [
     {"topic": "*args & **kwargs", "bug": "B1", "objective": "O2"},
     {"topic": "chaining decorator", "bug": "B2", "objective": "O1"},
     {"topic": "*args & **kwargs", "bug": "B3", "objective": "O3"},
-    {"topic": "custom decorator", "bug": "B3", "objective": "O3"}
+    {"topic": "custom decorator", "bug": "B3", "objective": "O3"},
+    {"topic": "*args & **kwargs", "bug": "B4", "objective": "O2"},
+    {"topic": "decorator", "bug": "B5", "objective": "O1"},
+    {"topic": "custom decorator", "bug": "B5", "objective": "O1"}
   ]
 }

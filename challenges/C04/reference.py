@@ -1,9 +1,11 @@
 """C04 — Method Dispatch Failure (reference solution)
 
 Perbaikan:
-- B1: factory memakai `cls(...)` sehingga Dosen.dari_csv menghasilkan Dosen.
-- B2: ubah_tarif_lembur menjadi @classmethod dan menulis `cls.tarif_lembur`.
-- B3: counter cukup dinaikkan di __init__ (factory tidak menambah lagi).
+- B1: dari_csv memakai cls(...) sehingga Dosen.dari_csv menghasilkan Dosen.
+- B2: ubah_tarif_lembur menjadi @classmethod dan meng-assign cls.tarif_lembur.
+- B3: counter hanya dinaikkan di __init__ (factory tidak menambah lagi).
+- B4: counter dinaikkan SETELAH validasi berhasil.
+- B5: gaji_bersih memanggil self.pajak(...) sehingga override pajak di turunan dipakai.
 """
 
 
@@ -43,4 +45,6 @@ class Dosen(Pegawai):
 
 
 class Satpam(Pegawai):
-    pass
+    @staticmethod
+    def pajak(nominal):
+        return nominal * 2 // 100

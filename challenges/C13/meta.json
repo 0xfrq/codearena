@@ -1,11 +1,33 @@
 {
   "id": "C13",
   "title": "The Broken E-Wallet",
-  "materi": [1, 2, 3, 4, 5],
+  "materi": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
   "capstone": true,
   "case": "E-wallet kampus DompetKu (integrated capstone)",
-  "topics": ["konsep class", "class attribute", "instance attribute", "encapsulation", "name mangling", "decorator", "custom decorator", "inheritance", "overriding", "abstract method", "data class", "attribute mutability", "duck typing", "structural typing", "pemodelan objek"],
-  "summary": "DompetKu menggabungkan akun abstrak, beberapa tipe akun, decorator pencatat transaksi, bukti transaksi berbasis dataclass, dan pemroses pembayaran berbasis perilaku. Laporan pengguna: riwayat semua akun tercampur, mahasiswa bisa menarik uang berkali-kali, transaksi gagal tercatat, bukti transaksi bisa diedit, dan voucher BEM ditolak.",
+  "topics": [
+    "konsep class",
+    "class attribute",
+    "instance attribute",
+    "encapsulation",
+    "name mangling",
+    "decorator",
+    "custom decorator",
+    "inheritance",
+    "overriding",
+    "abstract method",
+    "data class",
+    "attribute mutability",
+    "duck typing",
+    "structural typing",
+    "pemodelan objek"
+  ],
+  "summary": "DompetKu menggabungkan akun abstrak, beberapa tipe akun, decorator pencatat transaksi, bukti transaksi berbasis dataclass, dan pemroses pembayaran berbasis perilaku. Laporan pengguna: riwayat semua akun tercampur, mahasiswa bisa menarik uang berkali-kali, transaksi gagal tercatat, bukti transaksi bisa diedit, voucher BEM ditolak, mahasiswa dikenai biaya transfer merchant (dan sebaliknya), serta transfer Rp0 dari merchant tetap memotong saldo.",
   "objectives": [
     "O1: menganalisis interaksi beberapa konsep PBO dalam satu sistem modular.",
     "O2: menelusuri bug yang melintasi batas konsep (mis. name mangling yang muncul karena overriding).",
@@ -18,7 +40,7 @@
     "Transaksi(jenis, jumlah) immutable.",
     "@catat(jenis) hanya mencatat operasi yang berhasil.",
     "PemrosesPembayaran.proses menerima sumber dana apa pun yang memiliki bayar(jumlah) (Akun maupun VoucherKampus); selainnya TypeError.",
-    "transfer(asal, tujuan, jumlah) memotong jumlah + biaya dari asal, menambah jumlah ke tujuan, dan mengembalikan biaya."
+    "transfer(asal, tujuan, jumlah) menolak jumlah <= 0 (ValueError) tanpa mengubah saldo siapa pun; jika valid, memotong jumlah + biaya_transfer milik akun ASAL dari asal, menambah jumlah ke tujuan, dan mengembalikan biaya."
   ],
   "bugs": [
     {
@@ -65,27 +87,91 @@
       "scenario": "Pemroses memeriksa class Akun padahal kontraknya adalah perilaku bayar(); VoucherKampus ditolak.",
       "attack": "PemrosesPembayaran().proses(VoucherKampus('BEM', 20000), 15000) -> TypeError.",
       "fix": "isinstance(sumber, DapatMembayar) (runtime_checkable Protocol) + callable check."
+    },
+    {
+      "id": "B6",
+      "title": "Biaya transfer ditanyakan ke akun yang salah",
+      "location": "PemrosesPembayaran.transfer: tujuan.biaya_transfer(jumlah)",
+      "concept": "overriding & polimorfisme: method override dipanggil pada object yang tepat (materi 4)",
+      "scenario": "Setiap jenis akun meng-override biaya_transfer untuk transfer KELUAR. transfer() memanggilnya pada akun tujuan, sehingga mahasiswa yang mengirim ke merchant dikenai tarif merchant, sedangkan merchant yang mengirim ke mahasiswa gratis.",
+      "attack": "merchant = AkunMerchant('Kantin', 100_000); transfer(merchant, AkunMahasiswa('Ani'), 50_000) -> biaya 0, merchant.saldo 50000 (seharusnya biaya 1000, saldo 49000).",
+      "fix": "biaya = asal.biaya_transfer(jumlah)."
+    },
+    {
+      "id": "B7",
+      "title": "Transfer Rp0 tetap memotong biaya",
+      "location": "PemrosesPembayaran.transfer",
+      "concept": "pemodelan objek: validasi sebelum efek samping lintas object (materi 1)",
+      "scenario": "transfer() tidak memvalidasi jumlah. Untuk jumlah 0, asal.tarik(0 + biaya) berhasil memotong biaya, lalu tujuan.topup(0) gagal. Exception muncul SETELAH saldo asal berkurang, jadi operasi berhenti setengah jalan.",
+      "attack": "asal = AkunMerchant('H', 50_000); transfer(asal, AkunMerchant('I'), 0) -> ValueError, tetapi asal.saldo -> 49000.",
+      "fix": "if jumlah <= 0: raise ValueError(...) di awal transfer(), sebelum memanggil tarik/topup."
     }
   ],
   "attack_procedure": [
     "Petakan modul: data, decorator, akun, pembayaran — dan konsep PBO yang dipakai masing-masing.",
-    "Uji tiap modul secara terpisah lalu uji interaksinya (transfer, proses).",
+    "Uji tiap modul secara terpisah lalu uji interaksinya (transfer DUA arah antar jenis akun, transfer bernilai tidak valid, proses dengan berbagai sumber dana).",
     "Prioritaskan temuan berdampak finansial (uang ganda, saldo tidak berkurang) dan buktikan dengan test.",
     "Laporkan maksimal dua temuan terbaik — hanya dua temuan valid yang mendapat poin per ronde."
   ],
   "rubric_notes": {
-    "attack": "Temuan lintas konsep (B2) bernilai tinggi jika root cause menjelaskan kedua konsep yang terlibat.",
-    "defense": "Patch tidak boleh merusak modul lain: jalankan seluruh test normal (transfer, abstract, batas harian)."
+    "attack": "Temuan lintas konsep (B2, B6) bernilai tinggi jika root cause menjelaskan kedua konsep yang terlibat. B7 harus menunjukkan bahwa exception terjadi SETELAH saldo terpotong.",
+    "defense": "Patch tidak boleh merusak modul lain: jalankan seluruh test normal (abstract, batas harian) dan uji transfer ke dua arah (mahasiswa->merchant dan merchant->mahasiswa)."
   },
   "concept_map": [
-    {"topic": "class attribute", "bug": "B1", "objective": "O1"},
-    {"topic": "name mangling", "bug": "B2", "objective": "O2"},
-    {"topic": "overriding", "bug": "B2", "objective": "O2"},
-    {"topic": "custom decorator", "bug": "B3", "objective": "O1"},
-    {"topic": "data class", "bug": "B4", "objective": "O1"},
-    {"topic": "attribute mutability", "bug": "B4", "objective": "O3"},
-    {"topic": "duck typing", "bug": "B5", "objective": "O1"},
-    {"topic": "structural typing", "bug": "B5", "objective": "O2"},
-    {"topic": "abstract method", "bug": "-", "objective": "O3"}
+    {
+      "topic": "class attribute",
+      "bug": "B1",
+      "objective": "O1"
+    },
+    {
+      "topic": "name mangling",
+      "bug": "B2",
+      "objective": "O2"
+    },
+    {
+      "topic": "overriding",
+      "bug": "B2",
+      "objective": "O2"
+    },
+    {
+      "topic": "custom decorator",
+      "bug": "B3",
+      "objective": "O1"
+    },
+    {
+      "topic": "data class",
+      "bug": "B4",
+      "objective": "O1"
+    },
+    {
+      "topic": "attribute mutability",
+      "bug": "B4",
+      "objective": "O3"
+    },
+    {
+      "topic": "duck typing",
+      "bug": "B5",
+      "objective": "O1"
+    },
+    {
+      "topic": "structural typing",
+      "bug": "B5",
+      "objective": "O2"
+    },
+    {
+      "topic": "abstract method",
+      "bug": "-",
+      "objective": "O3"
+    },
+    {
+      "topic": "overriding",
+      "bug": "B6",
+      "objective": "O2"
+    },
+    {
+      "topic": "pemodelan objek",
+      "bug": "B7",
+      "objective": "O3"
+    }
   ]
 }

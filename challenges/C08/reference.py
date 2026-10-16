@@ -1,9 +1,11 @@
 """C08 — Override Gone Wrong (reference solution)
 
 Perbaikan:
-- B1: nama method Manajer.jabatan diperbaiki sehingga benar-benar meng-override.
-- B2: Manajer memanggil super().hitung_gaji(jam_lembur) sehingga lapisan PegawaiTetap (tunjangan) ikut dihitung.
-- B3: PegawaiTetap.hitung_gaji mempertahankan signature parent (jam_lembur=0) dan meneruskannya.
+- B1: nama method override diperbaiki menjadi jabatan().
+- B2: Manajer memanggil super().hitung_gaji(jam_lembur) sehingga lapisan PegawaiTetap ikut dihitung.
+- B3: PegawaiTetap.hitung_gaji mempertahankan signature (jam_lembur=0) dan meneruskannya ke super().
+- B4: Manajer.slip meneruskan jam_lembur ke super().slip().
+- B5: total_penggajian murni polimorfik; tidak ada perlakuan khusus berdasarkan tipe.
 """
 
 TARIF_LEMBUR = 40_000
@@ -48,6 +50,9 @@ class Manajer(PegawaiTetap):
 
     def hitung_gaji(self, jam_lembur=0):
         return super().hitung_gaji(jam_lembur) + self.bonus_jabatan
+
+    def slip(self, jam_lembur=0):
+        return super().slip(jam_lembur) + " *"
 
 
 def total_penggajian(daftar_pegawai, jam_lembur=0):

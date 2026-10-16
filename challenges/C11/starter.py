@@ -8,9 +8,10 @@ Laporan harian dapat diarsipkan dengan salin(); arsip harus independen dari lapo
 from dataclasses import dataclass, replace
 
 KATEGORI_DEFAULT = ["umum"]
+METODE_VALID = ("tunai", "qris")
 
 
-@dataclass
+@dataclass(eq=False)
 class Transaksi:
     kode: str
     jumlah: int
@@ -32,10 +33,19 @@ class LaporanHarian:
     def tambah(self, trx):
         if trx.jumlah <= 0:
             raise ValueError("jumlah transaksi harus positif")
+        if trx in self.transaksi:
+            raise ValueError("transaksi sudah tercatat")
         self.transaksi.append(trx)
 
     def total(self):
         return sum(t.jumlah for t in self.transaksi)
+
+    def per_metode(self):
+        """Pemetaan metode -> list kode transaksi, untuk setiap metode valid."""
+        hasil = dict.fromkeys(METODE_VALID, [])
+        for t in self.transaksi:
+            hasil[t.metode].append(t.kode)
+        return hasil
 
     def salin(self):
         """Membuat arsip yang independen dari laporan aktif."""

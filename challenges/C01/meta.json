@@ -4,18 +4,20 @@
   "materi": [1],
   "case": "Inventaris gudang laboratorium kampus",
   "topics": ["konsep class", "object/instance", "struktur class", "attribute", "instance attribute", "class attribute", "membuat object", "akses attribute & method", "pemodelan objek"],
-  "summary": "Kampus memiliki beberapa gudang laboratorium. Setiap objek Gudang seharusnya menyimpan stoknya sendiri, tetapi petugas melaporkan barang yang dimasukkan ke Gudang A tiba-tiba 'muncul' di Gudang B.",
+  "summary": "Kampus memiliki beberapa gudang laboratorium. Setiap objek Gudang seharusnya menyimpan stoknya sendiri, tetapi petugas melaporkan barang yang dimasukkan ke Gudang A 'muncul' di Gudang B, laporan jenis barang tidak akurat, daftar barang bisa diubah dari luar, dan pemindahan stok yang gagal tetap menambah stok gudang tujuan.",
   "objectives": [
     "O1: menjelaskan struktur class Python (class body, __init__, self) dan kapan sebuah attribute menjadi milik class atau milik instance.",
-    "O2: membuat beberapa object dari satu class dan membuktikan bahwa state tiap instance independen.",
-    "O3: memodelkan permasalahan gudang menjadi attribute dan method yang konsisten dengan spesifikasi."
+    "O2: membuat beberapa object dari satu class dan membuktikan bahwa state tiap instance independen, termasuk ketika object saling memanggil method.",
+    "O3: memodelkan permasalahan gudang menjadi attribute dan method yang menjaga konsistensi state object."
   ],
   "spec": [
     "Gudang(nama) membuat gudang baru dengan stok kosong; setiap gudang memiliki stok sendiri.",
     "tambah(kode, jumlah) menambah stok; jumlah <= 0 ditolak dengan ValueError.",
-    "ambil(kode, jumlah) mengurangi stok; jumlah melebihi stok ditolak dengan ValueError.",
+    "ambil(kode, jumlah) mengurangi stok; jumlah <= 0 atau melebihi stok ditolak dengan ValueError.",
+    "pindahkan(tujuan, kode, jumlah) memindahkan stok ke gudang lain; jika gagal, KEDUA gudang tidak berubah.",
     "jumlah_stok(kode) mengembalikan jumlah unit; kode yang tidak terdaftar bernilai 0 (bukan error).",
     "jenis_barang() menghitung banyaknya jenis barang yang stoknya > 0.",
+    "daftar_barang() mengembalikan dict kode -> jumlah (hanya stok > 0); mengubah dict hasil tidak boleh mengubah gudang.",
     "ringkasan() mengembalikan '<nama>: <jenis> jenis, <total> unit'.",
     "Gudang.satuan adalah class attribute yang sama untuk semua gudang."
   ],
@@ -46,24 +48,47 @@
       "scenario": "Ketika stok mencapai 0, key tetap tersimpan sehingga jenis_barang() menghitung barang yang sudah habis.",
       "attack": "tambah('PROYEKTOR', 2); tambah('SPIDOL', 10); ambil('PROYEKTOR', 2); jenis_barang() -> 2 (seharusnya 1).",
       "fix": "Hapus key ketika stok habis atau hitung hanya qty > 0."
+    },
+    {
+      "id": "B4",
+      "title": "daftar_barang membocorkan dict internal",
+      "location": "Gudang.daftar_barang",
+      "concept": "state object dan referensi (aliasing) attribute mutable",
+      "scenario": "Method mengembalikan objek dict internal self.stok, bukan salinannya. Pemanggil yang mengubah hasilnya ikut mengubah stok gudang tanpa lewat tambah()/ambil().",
+      "attack": "d = g.daftar_barang(); d['OSILOSKOP'] = 999; g.jumlah_stok('OSILOSKOP') -> 999.",
+      "fix": "Kembalikan salinan: {k: v for k, v in self.stok.items() if v > 0}."
+    },
+    {
+      "id": "B5",
+      "title": "Pemindahan gagal tetap menambah stok tujuan",
+      "location": "Gudang.pindahkan",
+      "concept": "interaksi antar object dan konsistensi state",
+      "scenario": "pindahkan() menambah stok gudang tujuan SEBELUM mengambil dari gudang asal. Jika ambil() gagal karena stok kurang, stok tujuan sudah terlanjur bertambah (barang 'tercipta' dari ketiadaan).",
+      "attack": "a.tambah('LCD', 2); a.pindahkan(b, 'LCD', 5) -> ValueError, tetapi b.jumlah_stok('LCD') -> 5.",
+      "fix": "Panggil self.ambil(kode, jumlah) lebih dulu, baru tujuan.tambah(kode, jumlah)."
     }
   ],
   "attack_procedure": [
     "Baca spesifikasi dan locked snapshot target.",
     "Buat minimal dua object Gudang dan amati apakah state-nya independen.",
     "Uji batas: kode yang tidak terdaftar dan stok yang dihabiskan.",
+    "Perlakukan nilai kembalian method sebagai milik pemanggil: ubah hasilnya lalu cek ulang state object.",
+    "Uji operasi yang melibatkan dua object (pindahkan) pada kondisi gagal, lalu periksa state KEDUA object.",
     "Tulis test case unittest yang gagal pada snapshot target dan lulus pada perilaku yang benar.",
     "Laporkan lokasi, input pemicu, expected vs actual, dan root cause dalam istilah PBO."
   ],
   "rubric_notes": {
-    "attack": "Root cause B1 harus menyebut perbedaan class attribute dan instance attribute (bukan sekadar 'dict salah').",
-    "defense": "Patch B1 yang hanya me-reset stok di tambah() tidak memperbaiki root cause. Regression test harus membuat >= 2 instance."
+    "attack": "Root cause B1 harus menyebut perbedaan class attribute dan instance attribute (bukan sekadar 'dict salah'). B4 harus menjelaskan bahwa yang dikembalikan adalah referensi ke objek yang sama. B5 harus menyebut urutan operasi, bukan hanya 'validasi kurang'.",
+    "defense": "Patch B1 yang hanya me-reset stok di tambah() tidak memperbaiki root cause. Patch B5 yang menambahkan try/except tanpa mengembalikan stok tujuan dianggap parsial. Regression test harus membuat >= 2 instance."
   },
   "concept_map": [
     {"topic": "class attribute", "bug": "B1", "objective": "O1"},
     {"topic": "instance attribute", "bug": "B1", "objective": "O2"},
     {"topic": "object/instance", "bug": "B1", "objective": "O2"},
     {"topic": "akses attribute & method", "bug": "B2", "objective": "O3"},
-    {"topic": "pemodelan objek", "bug": "B3", "objective": "O3"}
+    {"topic": "pemodelan objek", "bug": "B3", "objective": "O3"},
+    {"topic": "attribute", "bug": "B4", "objective": "O3"},
+    {"topic": "object/instance", "bug": "B5", "objective": "O2"},
+    {"topic": "pemodelan objek", "bug": "B5", "objective": "O3"}
   ]
 }

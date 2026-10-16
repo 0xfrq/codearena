@@ -1,9 +1,9 @@
 """C09 — Multiple Inheritance Conflict
 
-Pembayaran kampus (UKT, kantin) yang menggabungkan beberapa mixin melalui multiple inheritance.
-Dompet direpresentasikan sebagai dict: {"saldo": <int>}.
+Pembayaran kampus (UKT, kantin, parkir, hibah riset) yang menggabungkan beberapa mixin
+melalui multiple inheritance. Dompet direpresentasikan sebagai dict: {"saldo": <int>}.
 
-Rantai yang diharapkan untuk setiap pembayaran: log -> validasi -> debit (tepat satu kali).
+Rantai yang diharapkan untuk setiap pembayaran ber-log: log -> validasi -> debit (tepat satu kali).
 """
 
 
@@ -53,3 +53,15 @@ class PembayaranKantin(LogMixin, ValidasiMixin):
     def proses(self):
         LogMixin.proses(self)
         return ValidasiMixin.proses(self)
+
+
+class PembayaranParkir(ValidasiMixin, LogMixin):
+    """Pembayaran parkir: alurnya sama dengan pembayaran ber-log lainnya."""
+
+
+class PembayaranHibah(ValidasiMixin, Pembayaran):
+    """Pencairan hibah riset: tanpa log, tetapi batas transaksinya 50.000.000."""
+
+    def __init__(self, dompet, jumlah):
+        self.batas = 50_000_000
+        super().__init__(dompet, jumlah)

@@ -1,9 +1,11 @@
 """C07 — The Broken Family Tree (reference solution)
 
 Perbaikan:
-- B1: Dosen.__init__ memanggil super().__init__(nama, nomor) sehingga attribute base terbentuk.
-- B2: kartu() memakai self.prefix (lookup lewat instance -> class turunan), bukan Civitas.prefix.
-- B3: Mahasiswa meneruskan argumen ke constructor parent dengan urutan yang benar.
+- B1: Dosen.__init__ memanggil super().__init__(nama, nomor) sehingga attribute & validasi base terpasang.
+- B2: kartu() memakai self.prefix sehingga lookup mengikuti class konkret.
+- B3: Tendik meneruskan argumen yang benar ke constructor base (nama, bukan unit).
+- B4: Mahasiswa.nonaktifkan memanggil super().nonaktifkan() sebelum menambah perilaku khusus.
+- B5: hanya_dosen memakai isinstance sehingga turunan Dosen (DosenTamu) ikut terhitung.
 """
 
 
@@ -36,12 +38,25 @@ class Dosen(Civitas):
         self.nidn = nidn
 
 
+class DosenTamu(Dosen):
+    prefix = "DTM"
+
+    def __init__(self, nama, nomor, nidn, asal_kampus):
+        super().__init__(nama, nomor, nidn)
+        self.asal_kampus = asal_kampus
+
+
 class Mahasiswa(Civitas):
     prefix = "MHS"
 
     def __init__(self, nama, nomor, prodi):
         super().__init__(nama, nomor)
         self.prodi = prodi
+        self.status_studi = "aktif"
+
+    def nonaktifkan(self):
+        super().nonaktifkan()
+        self.status_studi = "cuti"
 
 
 class Tendik(Civitas):
@@ -50,3 +65,7 @@ class Tendik(Civitas):
     def __init__(self, nama, nomor, unit):
         super().__init__(nama, nomor)
         self.unit = unit
+
+
+def hanya_dosen(daftar):
+    return [c for c in daftar if isinstance(c, Dosen)]

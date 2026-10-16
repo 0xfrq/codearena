@@ -4,36 +4,36 @@
   "materi": [4],
   "case": "Slip gaji bertingkat (penggajian)",
   "topics": ["overriding", "nested inheritance", "inheritance", "derived class"],
-  "summary": "Hierarki Pegawai -> PegawaiTetap -> Manajer dipakai untuk slip gaji. Manajer tercetak sebagai 'Pegawai Tetap', tunjangan manajer hilang, dan rekap penggajian crash ketika ada pegawai tetap.",
+  "summary": "Hierarki Pegawai -> PegawaiTetap -> Manajer dipakai untuk slip gaji. Manajer tercetak sebagai 'Pegawai Tetap', tunjangan manajer hilang, rekap penggajian crash ketika ada pegawai tetap, slip manajer tidak pernah memuat lembur, dan setelah crash diperbaiki total rekap justru lebih besar dari jumlah slip.",
   "objectives": [
-    "O1: menjelaskan overriding dan syarat sebuah method benar-benar meng-override (nama & signature).",
-    "O2: memanfaatkan super() pada nested inheritance agar setiap lapisan berkontribusi.",
-    "O3: menjaga kompatibilitas signature override supaya pemanggilan polimorfik tetap aman."
+    "O1: menjelaskan overriding: method di derived class menggantikan method base dengan nama dan signature yang sama.",
+    "O2: menggunakan super() pada nested inheritance agar setiap lapisan ikut berkontribusi dan argumen diteruskan.",
+    "O3: menjaga substitusi (override yang kompatibel) sehingga kode pemanggil cukup polimorfik tanpa memeriksa tipe."
   ],
   "spec": [
     "jabatan(): 'Staf' / 'Pegawai Tetap' / 'Manajer'.",
-    "hitung_gaji(jam_lembur=0) tersedia di semua level dengan signature yang sama.",
+    "hitung_gaji(jam_lembur=0) tersedia di semua level dengan signature yang sama; jam lembur negatif ditolak di semua level.",
     "Gaji PegawaiTetap = gaji Pegawai + tunjangan; gaji Manajer = gaji PegawaiTetap + bonus_jabatan.",
-    "total_penggajian(daftar, jam) menjumlahkan gaji secara polimorfik.",
-    "Jam lembur negatif ditolak di semua level."
+    "slip(jam_lembur=0) mengembalikan '<nama> [<jabatan>] Rp<gaji>' (format ribuan dengan koma); slip Manajer diakhiri ' *' dan memakai jam lembur yang sama.",
+    "total_penggajian(daftar, jam) sama dengan jumlah hitung_gaji(jam) setiap pegawai."
   ],
   "bugs": [
     {
       "id": "B1",
-      "title": "Override salah ketik — tidak pernah dipanggil",
+      "title": "Override salah ketik, tidak pernah dipanggil",
       "location": "Manajer.jabtan",
       "concept": "overriding membutuhkan nama method yang sama",
-      "scenario": "Method bernama jabtan sehingga Manajer mewarisi jabatan() milik PegawaiTetap.",
-      "attack": "Manajer('S', 8e6, 1e6, 2e6).jabatan() -> 'Pegawai Tetap'.",
-      "fix": "Ganti nama menjadi jabatan."
+      "scenario": "Method ditulis jabtan() sehingga tidak meng-override jabatan(). Lookup jabatan() pada Manajer menemukan versi PegawaiTetap.",
+      "attack": "Manajer(...).jabatan() -> 'Pegawai Tetap'.",
+      "fix": "Ganti nama menjadi jabatan()."
     },
     {
       "id": "B2",
       "title": "Manajer melompati lapisan PegawaiTetap",
       "location": "Manajer.hitung_gaji: Pegawai.hitung_gaji(self, ...)",
       "concept": "nested inheritance dan super()",
-      "scenario": "Pemanggilan eksplisit ke kakek (Pegawai) melewati PegawaiTetap sehingga tunjangan tidak dihitung.",
-      "attack": "Manajer('S', 8_000_000, 1_000_000, 2_000_000).hitung_gaji() -> 10_000_000 (seharusnya 11_000_000).",
+      "scenario": "Pemanggilan eksplisit ke Pegawai.hitung_gaji melewati PegawaiTetap.hitung_gaji sehingga tunjangan manajer tidak dihitung.",
+      "attack": "Manajer('Maya', 10_000_000, 2_000_000, 3_000_000).hitung_gaji() -> 13.000.000 (seharusnya 15.000.000).",
       "fix": "return super().hitung_gaji(jam_lembur) + self.bonus_jabatan."
     },
     {
@@ -41,23 +41,45 @@
       "title": "Override mengubah signature",
       "location": "PegawaiTetap.hitung_gaji(self)",
       "concept": "overriding yang kompatibel (substitusi)",
-      "scenario": "Override menghapus parameter jam_lembur sehingga pemanggilan polimorfik p.hitung_gaji(jam) gagal untuk PegawaiTetap.",
-      "attack": "PegawaiTetap('D', 5e6, 5e5).hitung_gaji(3) -> TypeError; total_penggajian(...) crash.",
+      "scenario": "Override menghapus parameter jam_lembur sehingga kode polimorfik yang memanggil hitung_gaji(jam) crash untuk PegawaiTetap, dan validasi lembur negatif tidak pernah berjalan.",
+      "attack": "PegawaiTetap('Tono', 6_000_000, 1_000_000).hitung_gaji(2) -> TypeError.",
       "fix": "def hitung_gaji(self, jam_lembur=0): return super().hitung_gaji(jam_lembur) + self.tunjangan."
+    },
+    {
+      "id": "B4",
+      "title": "Slip manajer mengabaikan jam lembur",
+      "location": "Manajer.slip: super().slip()",
+      "concept": "override yang memperluas method base harus meneruskan argumen",
+      "scenario": "Manajer.slip menerima jam_lembur tetapi memanggil super().slip() tanpa argumen, sehingga slip manajer selalu dihitung dengan 0 jam lembur.",
+      "attack": "m.slip(2) -> 'Maya [...] Rp15,000,000 *' (seharusnya Rp15,080,000).",
+      "fix": "return super().slip(jam_lembur) + ' *'."
+    },
+    {
+      "id": "B5",
+      "title": "Rekap menambahkan tunjangan dua kali",
+      "location": "total_penggajian: if isinstance(p, PegawaiTetap)",
+      "concept": "polimorfisme: pemanggil tidak boleh mengulang logika yang sudah ada di override",
+      "scenario": "Fungsi rekap memeriksa tipe lalu menambahkan tunjangan secara manual, padahal hitung_gaji PegawaiTetap/Manajer (setelah benar) sudah menyertakan tunjangan. Hasilnya tunjangan terhitung ganda.",
+      "attack": "Setelah B2/B3 diperbaiki: total_penggajian([PegawaiTetap('Tono', 6_000_000, 1_000_000)]) -> 8.000.000 (seharusnya 7.000.000).",
+      "fix": "return sum(p.hitung_gaji(jam_lembur) for p in daftar_pegawai)."
     }
   ],
   "attack_procedure": [
-    "Telusuri MRO (Class.__mro__) untuk setiap method yang dipanggil.",
-    "Hitung gaji manual tiap level lalu bandingkan dengan output.",
-    "Panggil method secara polimorfik melalui satu daftar berisi semua jenis pegawai."
+    "Daftar semua method setiap level hierarki dan bandingkan nama serta signature-nya.",
+    "Hitung gaji setiap level secara manual dan bandingkan dengan hasil method.",
+    "Panggil method polimorfik (hitung_gaji(jam), slip(jam)) pada campuran object dari semua level.",
+    "Bandingkan total_penggajian dengan jumlah slip individual.",
+    "Tulis regression test dan laporkan root cause dalam istilah overriding."
   ],
   "rubric_notes": {
-    "attack": "B2 lebih kuat jika attacker menunjukkan bahwa tunjangan hilang tepat sebesar nilai tunjangan.",
-    "defense": "Regression test sebaiknya memuat pemanggilan polimorfik campuran (Pegawai, PegawaiTetap, Manajer)."
+    "attack": "B2 harus menyebut bahwa pemanggilan eksplisit ke kakek-class melompati lapisan tengah. B5 harus dijelaskan sebagai pelanggaran polimorfisme (type switch), bukan sekadar 'salah hitung'.",
+    "defense": "Patch B3 yang memakai *args tanpa meneruskan jam_lembur dianggap parsial. Patch B5 yang mengurangi tunjangan di tempat lain (kompensasi) tidak diterima."
   },
   "concept_map": [
     {"topic": "overriding", "bug": "B1", "objective": "O1"},
     {"topic": "nested inheritance", "bug": "B2", "objective": "O2"},
-    {"topic": "overriding", "bug": "B3", "objective": "O3"}
+    {"topic": "overriding", "bug": "B3", "objective": "O3"},
+    {"topic": "derived class", "bug": "B4", "objective": "O2"},
+    {"topic": "inheritance", "bug": "B5", "objective": "O3"}
   ]
 }

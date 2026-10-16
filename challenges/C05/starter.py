@@ -1,8 +1,9 @@
 """C05 — The Decorator Trap
 
 Kasir koperasi mahasiswa. Setiap operasi kas dibungkus decorator buatan sendiri:
-- @nominal_positif  : menolak nominal <= 0 sebelum operasi dijalankan.
-- @catat_transaksi  : mencatat NAMA operasi ke AUDIT_LOG setiap kali operasi BERHASIL dipanggil.
+- @nominal_positif   : menolak nominal <= 0 sebelum operasi dijalankan.
+- @batasi_harian(n)  : setiap kasir hanya boleh melakukan n operasi BERHASIL per hari.
+- @catat_transaksi   : mencatat NAMA operasi ke AUDIT_LOG setiap kali operasi BERHASIL dipanggil.
 """
 
 AUDIT_LOG = []
@@ -26,6 +27,22 @@ def nominal_positif(func):
     return wrapper
 
 
+def batasi_harian(maks):
+    def decorator(func):
+        terpakai = 0
+
+        def wrapper(self, *args, **kwargs):
+            nonlocal terpakai
+            if terpakai >= maks:
+                raise PermissionError("kuota harian habis")
+            terpakai += 1
+            return func(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 class KasirKoperasi:
     def __init__(self, saldo_kas=0):
         self.saldo_kas = saldo_kas
@@ -38,6 +55,7 @@ class KasirKoperasi:
         return self.saldo_kas
 
     @catat_transaksi
+    @batasi_harian(3)
     @nominal_positif
     def beri_kembalian(self, nominal):
         """Mengeluarkan uang kembalian dan mengembalikan saldo kas terbaru."""

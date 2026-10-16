@@ -4,60 +4,86 @@
   "materi": [5],
   "case": "Pencatatan transaksi harian kantin kampus",
   "topics": ["data class", "attribute mutability", "object/instance"],
-  "summary": "Kantin kampus mencatat transaksi dengan dataclass. Auditor menemukan nilai transaksi dapat diubah setelah dicatat, kategori laporan satu hari muncul di laporan hari lain, dan arsip laporan ikut berubah ketika laporan aktif ditambah.",
+  "summary": "Kantin kampus mencatat transaksi dengan dataclass. Auditor menemukan nilai transaksi dapat diubah setelah dicatat, kategori laporan satu hari muncul di laporan hari lain, arsip laporan ikut berubah ketika laporan aktif ditambah, transaksi yang sama persis bisa dicatat dua kali, dan rekap per metode menampilkan semua transaksi di setiap metode.",
   "objectives": [
-    "O1: menggunakan dataclass (field, default_factory, frozen, replace) secara tepat.",
-    "O2: menjelaskan mutability attribute dan aliasing referensi objek mutable.",
-    "O3: merancang objek bukti (evidence) yang immutable dan salinan yang benar-benar independen."
+    "O1: menggunakan dataclass (frozen, eq, field/default_factory) dan memahami method yang di-generate otomatis.",
+    "O2: mengidentifikasi aliasing pada attribute mutable (list/dict) dan dampaknya pada banyak object.",
+    "O3: membuat salinan yang benar-benar independen dan membedakan kesetaraan nilai (==) dari identitas objek (is)."
   ],
   "spec": [
     "Transaksi(kode, jumlah, metode='tunai') bersifat immutable (FrozenInstanceError saat di-assign).",
+    "Dua Transaksi dengan data sama dianggap sama (==) dan hashable (dapat dimasukkan ke set).",
     "LaporanHarian(tanggal) memiliki list transaksi dan kategori miliknya sendiri; kategori default ['umum'].",
     "KATEGORI_DEFAULT tidak boleh berubah oleh operasi pada laporan mana pun.",
-    "tambah(trx) menolak jumlah <= 0; total() menjumlahkan transaksi.",
+    "tambah(trx) menolak jumlah <= 0 dan transaksi yang sama dengan yang sudah tercatat (ValueError); total() menjumlahkan transaksi.",
+    "per_metode() mengembalikan {'tunai': [kode...], 'qris': [kode...]} sesuai metode setiap transaksi.",
     "salin() menghasilkan arsip independen: perubahan laporan aktif tidak mengubah arsip."
   ],
   "bugs": [
     {
       "id": "B1",
       "title": "Default kategori menunjuk list global",
-      "location": "LaporanHarian.__post_init__",
+      "location": "LaporanHarian.__post_init__: self.kategori = KATEGORI_DEFAULT",
       "concept": "attribute mutability dan aliasing",
-      "scenario": "self.kategori = KATEGORI_DEFAULT menyimpan referensi ke list global yang sama untuk semua laporan.",
-      "attack": "a.kategori.append('kantin'); b.kategori -> ['umum', 'kantin']; KATEGORI_DEFAULT ikut berubah.",
-      "fix": "field(default_factory=lambda: list(KATEGORI_DEFAULT))."
+      "scenario": "Setiap laporan tanpa kategori eksplisit memakai list global yang SAMA. Menambah kategori di satu laporan mengubah KATEGORI_DEFAULT dan semua laporan lain.",
+      "attack": "LaporanHarian('a').kategori.append('promo'); LaporanHarian('b').kategori -> ['umum', 'promo'].",
+      "fix": "field(default_factory=lambda: list(KATEGORI_DEFAULT)) atau list(KATEGORI_DEFAULT) di __post_init__."
     },
     {
       "id": "B2",
       "title": "Bukti transaksi dapat diubah",
       "location": "@dataclass class Transaksi",
       "concept": "dataclass frozen untuk objek immutable",
-      "scenario": "Transaksi dibuat mutable sehingga jumlah bisa diubah setelah dicatat dan total laporan berubah diam-diam.",
-      "attack": "t = Transaksi('T9', 50000); t.jumlah = 1 berhasil.",
+      "scenario": "Transaksi adalah dataclass biasa sehingga attribute-nya dapat di-assign setelah dicatat; bukti bisa dimanipulasi.",
+      "attack": "t = Transaksi('T9', 15000); t.jumlah = 1 -> berhasil.",
       "fix": "@dataclass(frozen=True)."
     },
     {
       "id": "B3",
       "title": "Arsip berbagi list dengan laporan aktif",
-      "location": "LaporanHarian.salin",
-      "concept": "shallow copy pada dataclass.replace",
-      "scenario": "replace(self) menyalin referensi list transaksi/kategori, bukan isinya.",
-      "attack": "arsip = lap.salin(); lap.tambah(Transaksi('T2', 99000)); arsip.total() ikut bertambah.",
+      "location": "LaporanHarian.salin: replace(self)",
+      "concept": "shallow copy pada dataclasses.replace",
+      "scenario": "replace() membuat object baru tetapi field list-nya tetap menunjuk objek list yang sama. Transaksi baru di laporan aktif muncul di arsip.",
+      "attack": "arsip = lap.salin(); lap.tambah(Transaksi('A2', 7000)); len(arsip.transaksi) -> 2.",
       "fix": "replace(self, transaksi=list(self.transaksi), kategori=list(self.kategori))."
+    },
+    {
+      "id": "B4",
+      "title": "Transaksi duplikat tidak terdeteksi",
+      "location": "@dataclass(eq=False) class Transaksi",
+      "concept": "method yang di-generate dataclass: __eq__ dan __hash__",
+      "scenario": "eq=False membuat dataclass memakai kesetaraan identitas (is). Pemeriksaan `trx in self.transaksi` di tambah() tidak pernah menemukan transaksi bernilai sama yang dibuat sebagai object baru.",
+      "attack": "lap.tambah(Transaksi('D2', 4000, 'qris')); lap.tambah(Transaksi('D2', 4000, 'qris')) -> diterima; total 8000.",
+      "fix": "Hapus eq=False (default eq=True); bersama frozen=True object menjadi hashable."
+    },
+    {
+      "id": "B5",
+      "title": "Rekap per metode berbagi satu list",
+      "location": "LaporanHarian.per_metode: dict.fromkeys(METODE_VALID, [])",
+      "concept": "attribute mutability: satu objek list menjadi nilai banyak key",
+      "scenario": "dict.fromkeys memakai OBJEK list yang sama untuk semua key. Setiap append masuk ke list bersama sehingga semua metode menampilkan semua kode transaksi.",
+      "attack": "tambah M1 tunai, M2 qris; per_metode() -> {'tunai': ['M1', 'M2'], 'qris': ['M1', 'M2']}.",
+      "fix": "{m: [] for m in METODE_VALID}."
     }
   ],
   "attack_procedure": [
-    "Buat beberapa laporan dan periksa identitas (is / id()) list di dalamnya.",
-    "Coba mengubah field transaksi yang sudah dicatat.",
-    "Buat arsip dengan salin(), ubah laporan aktif, bandingkan."
+    "Coba assignment ke attribute object yang seharusnya immutable.",
+    "Buat beberapa laporan tanpa argumen dan ubah salah satunya.",
+    "Arsipkan laporan, ubah laporan aktif, bandingkan arsip.",
+    "Bandingkan dua object bernilai sama dengan == dan is; uji penolakan duplikat.",
+    "Periksa apakah nilai-nilai dalam dict hasil method adalah object yang sama (id()).",
+    "Tulis regression test dan jelaskan aliasing vs salinan."
   ],
   "rubric_notes": {
-    "attack": "Bukti terbaik menampilkan id() objek list yang sama pada dua laporan.",
-    "defense": "Patch B2 yang hanya menambahkan validasi di tambah() tidak membuat bukti immutable."
+    "attack": "B3 harus menyebut shallow copy, bukan sekadar 'salin salah'. B4 harus membedakan kesetaraan nilai dan identitas.",
+    "defense": "Patch B3 dengan copy.deepcopy diterima. Patch B2 dengan property read-only manual diterima tetapi diberi catatan (frozen lebih idiomatik). Patch B4 yang membandingkan kode transaksi secara manual di tambah() dianggap parsial."
   },
   "concept_map": [
     {"topic": "attribute mutability", "bug": "B1", "objective": "O2"},
     {"topic": "data class", "bug": "B2", "objective": "O1"},
-    {"topic": "attribute mutability", "bug": "B3", "objective": "O3"}
+    {"topic": "attribute mutability", "bug": "B3", "objective": "O3"},
+    {"topic": "data class", "bug": "B4", "objective": "O1"},
+    {"topic": "object/instance", "bug": "B4", "objective": "O3"},
+    {"topic": "attribute mutability", "bug": "B5", "objective": "O2"}
   ]
 }
